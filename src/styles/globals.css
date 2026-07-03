@@ -1,0 +1,74 @@
+/* ── Google Fonts ──────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ── Tailwind layers ───────────────────────────────────────────────────── */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base layer overrides ──────────────────────────────────────────────── */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+  }
+
+  body {
+    @apply bg-bg-app text-text-primary font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  /* Headings inherit color so pages can override per-context */
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-text-primary font-semibold leading-tight;
+  }
+
+  /* Smooth focus rings */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary-600 ring-offset-2;
+  }
+}
+
+/* ── Custom scrollbar ──────────────────────────────────────────────────── */
+@layer utilities {
+  /* Thin scrollbar — neutral track, neutral thumb */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #737373 #d4d4d4; /* thumb / track (neutral-500 / neutral-300) */
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #d4d4d4; /* neutral-300 */
+    border-radius: 999px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #737373; /* neutral-500 */
+    border-radius: 999px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #525252; /* neutral-600 */
+  }
+
+  /* Hide scrollbar entirely (keeps scroll behaviour) */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}

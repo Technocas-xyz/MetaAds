@@ -1,0 +1,256 @@
+import { useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
+import {
+  ArrowLeft,
+  ExternalLink,
+  Play,
+  Clock,
+  TrendingUp,
+  Zap,
+  Calendar,
+  BarChart3,
+  Filter,
+} from 'lucide-react'
+import KPICard from '../../components/ui/KPICard'
+import Button from '../../components/ui/Button'
+import { useScraperCompetitor, useCompetitorAds, useTriggerScrape, useAnalyzeAd } from '../../hooks/queries/useScraper'
+import toast from 'react-hot-toast'
+import AdCard from './components/AdCard'
+import AIPatternsPanel from './components/AIPatternsPanel'
+import CompetitorInsightsPanel from './components/CompetitorInsightsPanel'
+
+
+const FILTERS = [
+  { key: 'all', label: 'All Ads' },
+  { key: 'active', label: 'Active' },
+  { key: 'new_7d', label: 'New (7d)' },
+  { key: 'long_running', label: 'Long-Running (3mo+)' },
+]
+
+export default function ScraperCompetitorDetailPage() {
+  const { id } = useParams()
+  const [filter, setFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const [showPatterns, setShowPatterns] = useState(false)
+  const perPage = 20
+
+  const { data: competitor, isLoading: compLoading, isError } = useScraperCompetitor(id)
+  const { data: adsResponse, isLoading: adsLoading } = useCompetitorAds(id, {
+    page,
+    per_page: perPage,
+    filter,
+  })
+  const triggerMutation = useTriggerScrape()
+  const analyzeMutation = useAnalyzeAd()
+
+  const ads = adsResponse?.data || []
+  const totalAds = adsResponse?.total || 0
+  const totalPages = adsResponse?.total_pages || 0
+
+  const handleRunNow = () => {
+    triggerMutation.mutate(id, {
+      onSuccess: (data) => {
+        toast.success(`Scrape done: ${data.ads_found} found, ${data.new_ads} new`)
+      },
+      onError: () => toast.error('Scrape failed'),
+    })
+  }
+
+  const handleAnalyze = (adId) => {
+    analyzeMutation.mutate(adId, {
+      onSuccess: () => toast.success('Analysis complete'),
+      onError: () => toast.error('Analysis failed'),
+    })
+  }
+
+  if (compLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-8 w-64 animate-pulse rounded bg-gray-100" />
+        <div className="grid grid-cols-5 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-24 animate-pulse rounded-card bg-gray-50" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (!competitor && !isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-text-secondary">Competitor not found</p>
+        <Link to="/scraper/competitors" className="mt-2 text-sm text-primary-600 hover:underline">
+          Back to list
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Link
+          to="/scraper/competitors"
+          className="rounded-lg p-2 text-text-secondary hover:bg-gray-100"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+        <div className="flex-1">
+          <h1 className="text-xl font-bold text-text-primary">{competitor.name}</h1>
+          <p className="text-xs text-text-secondary">
+            {competitor.query_type === 'page_id'
+              ? `Page ID: ${competitor.page_id}`
+              : `Keyword: ${competitor.query}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href={competitor.meta_ad_library_url || (
+              competitor.page_id
+                ? `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&view_all_page_id=${competitor.page_id}`
+                : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=${competitor.query}`
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default px-3 py-2 text-xs font-medium text-text-secondary hover:bg-gray-50"
+          >
+            <ExternalLink size={14} />
+            View in Ad Library
+          </a>
+          <Button
+            variant="primary"
+            size="md"
+            icon={Play}
+            onClick={handleRunNow}
+            disabled={triggerMutation.isPending}
+          >
+            {triggerMutation.isPending ? 'Scraping...' : 'Run Now'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Stat bar — 5 KPI cards */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <KPICard
+          title="Total Ads"
+          value={competitor.total_ads || 0}
+          icon={BarChart3}
+          iconBg="bg-blue-50"
+          iconColor="text-blue-600"
+        />
+        <KPICard
+          title="New (7d)"
+          value={competitor.new_7d || 0}
+          icon={Zap}
+          iconBg="bg-green-50"
+          iconColor="text-green-600"
+        />
+        <KPICard
+          title="Long-Running (3mo+)"
+          value={competitor.long_running_3mo || 0}
+          icon={Clock}
+          iconBg="bg-purple-50"
+          iconColor="text-purple-600"
+        />
+        <KPICard
+          title="Oldest Ad"
+          value={`${competitor.oldest_ad_days || 0}d`}
+          icon={Calendar}
+          iconBg="bg-amber-50"
+          iconColor="text-amber-600"
+        />
+        <KPICard
+          title="Avg Duration"
+          value={`${competitor.avg_duration_days || 0}d`}
+          icon={TrendingUp}
+          iconBg="bg-teal-50"
+          iconColor="text-teal-600"
+        />
+      </div>
+
+      {/* AI Insights Panel */}
+      <CompetitorInsightsPanel competitorId={id} />
+
+      {/* Filter tabs + Patterns toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1 rounded-lg border border-border-default p-1">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => { setFilter(f.key); setPage(1) }}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                filter === f.key
+                  ? 'bg-primary-600 text-white'
+                  : 'text-text-secondary hover:bg-gray-100'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setShowPatterns(!showPatterns)}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+            showPatterns
+              ? 'bg-primary-50 text-primary-700'
+              : 'border border-border-default text-text-secondary hover:bg-gray-50'
+          }`}
+        >
+          <Filter size={13} />
+          AI Patterns
+        </button>
+      </div>
+
+      {/* AI Patterns panel (collapsible) */}
+      {showPatterns && <AIPatternsPanel ads={ads} />}
+
+      {/* Ads grid — Meta Ad Library style */}
+      {adsLoading ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="h-60 animate-pulse rounded-lg border border-border-default bg-gray-50" />
+          ))}
+        </div>
+      ) : ads.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-card border border-border-default bg-white py-16">
+          <BarChart3 className="mb-3 h-10 w-10 text-gray-300" />
+          <p className="text-sm text-text-secondary">No ads found</p>
+          <p className="mt-1 text-xs text-text-secondary">Run a scrape to populate this view</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {ads.map((ad) => (
+            <AdCard key={ad.id} ad={ad} onAnalyze={handleAnalyze} />
+          ))}
+        </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-4">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-text-secondary">
+                Page {page} of {totalPages} ({totalAds} ads)
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
