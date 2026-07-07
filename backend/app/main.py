@@ -18,6 +18,7 @@ from app.routers import campaigns as campaigns_router
 from app.routers import scraper as scraper_router
 from app.routers import insights as insights_router
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.services.scheduler_service import start_scheduler, stop_scheduler
@@ -36,25 +37,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow local dev + deployed VPS frontend
-# Override via CORS_ORIGINS env var (comma-separated) if needed
-import os as _os
-_default_origins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://31.97.110.197:8096",
-    "http://31.97.110.197:5173",
-]
-_cors_env = _os.getenv("CORS_ORIGINS", "")
-_cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()] if _cors_env else _default_origins
-# Also include FRONTEND_URL from settings if not already in the list
-if settings.FRONTEND_URL and settings.FRONTEND_URL not in _cors_origins:
-    _cors_origins.append(settings.FRONTEND_URL)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
