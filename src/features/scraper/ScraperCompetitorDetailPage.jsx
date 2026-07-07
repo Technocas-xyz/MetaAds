@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   ExternalLink,
@@ -10,10 +10,11 @@ import {
   Calendar,
   BarChart3,
   Filter,
+  Trash2,
 } from 'lucide-react'
 import KPICard from '../../components/ui/KPICard'
 import Button from '../../components/ui/Button'
-import { useScraperCompetitor, useCompetitorAds, useTriggerScrape, useAnalyzeAd } from '../../hooks/queries/useScraper'
+import { useScraperCompetitor, useCompetitorAds, useTriggerScrape, useAnalyzeAd, useDeleteCompetitor } from '../../hooks/queries/useScraper'
 import toast from 'react-hot-toast'
 import AdCard from './components/AdCard'
 import AIPatternsPanel from './components/AIPatternsPanel'
@@ -29,9 +30,11 @@ const FILTERS = [
 
 export default function ScraperCompetitorDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [filter, setFilter] = useState('all')
   const [page, setPage] = useState(1)
   const [showPatterns, setShowPatterns] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const perPage = 20
 
   const { data: competitor, isLoading: compLoading, isError } = useScraperCompetitor(id)
@@ -42,6 +45,7 @@ export default function ScraperCompetitorDetailPage() {
   })
   const triggerMutation = useTriggerScrape()
   const analyzeMutation = useAnalyzeAd()
+  const deleteMutation = useDeleteCompetitor()
 
   const ads = adsResponse?.data || []
   const totalAds = adsResponse?.total || 0
@@ -49,10 +53,29 @@ export default function ScraperCompetitorDetailPage() {
 
   const handleRunNow = () => {
     triggerMutation.mutate(id, {
-      onSuccess: (data) => {
-        toast.success(`Scrape done: ${data.ads_found} found, ${data.new_ads} new`)
+      onSuccess: () => {
+        toast.success('Scrape started — checking progress...')
+        // Start polling for completion
+        const pollInterval = setInterval(async () => {
+          try {
+            const { getScrapeStatus } = await import('../../api/scraper')
+            const status = await getScrapeStatus(id)
+            if (status.status === 'completed') {
+              clearInterval(pollInterval)
+              toast.success(`Scraped ${status.ads_found} ads (${status.new_ads} new)`)
+              // Refresh data
+              window.location.reload()
+            } else if (status.status === 'failed') {
+              clearInterval(pollInterval)
+              toast.error(`Scrape failed: ${status.error_message || 'check logs'}`)
+            }
+            // status === 'running' -> keep polling
+          } catch {
+            clearInterval(pollInterval)
+          }
+        }, 5000) // Poll every 5s
       },
-      onError: () => toast.error('Scrape failed'),
+      onError: () => toast.error('Failed to start scrape'),
     })
   }
 
@@ -128,8 +151,50 @@ export default function ScraperCompetitorDetailPage() {
           >
             {triggerMutation.isPending ? 'Scraping...' : 'Run Now'}
           </Button>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="rounded-lg border border-danger-200 p-2 text-danger-500 hover:bg-danger-50"
+            title="Delete competitor"
+          >
+            <Trash2 size={16} />
+          </button>
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-card bg-white p-6 shadow-xl">
+            <h3 className="text-sm font-semibold text-text-primary">Delete {competitor.name}?</h3>
+            <p className="mt-2 text-xs text-text-secondary">
+              This will permanently delete this competitor and all its ads, analyses, and scrape history. This cannot be undone.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  deleteMutation.mutate(id, {
+                    onSuccess: () => {
+                      toast.success(`${competitor.name} deleted`)
+                      navigate('/scraper/competitors')
+                    },
+                    onError: () => toast.error('Failed to delete'),
+                  })
+                }}
+                disabled={deleteMutation.isPending}
+                className="rounded-lg bg-danger-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-danger-700 disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stat bar — 5 KPI cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

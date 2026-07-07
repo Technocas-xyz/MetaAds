@@ -281,21 +281,69 @@ async def list_competitor_ads(
     )
 
 
-@router.post("/competitors/{competitor_id}/scrape", response_model=ScrapeRunResponse)
+@router.post("/competitors/{competitor_id}/scrape", status_code=202)
 async def trigger_scrape(
     competitor_id: UUID,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Manually trigger a scrape for a competitor (Run Now button)."""
+    """Manually trigger a scrape for a competitor (Run Now button).
+    Returns 202 immediately; scrape runs in background.
+    Poll GET /scraper/competitors/{id}/scrape-status for progress.
+    """
     competitor = await db.get(Competitor, competitor_id)
     if not competitor:
         raise HTTPException(status_code=404, detail="Competitor not found")
 
-    # Run the scrape (synchronously for now so we can return the result)
-    run = await scrape_competitor(competitor_id, db, trigger="manual")
-    return ScrapeRunResponse.model_validate(run)
+    # Launch scrape in background
+    _asyncio.create_task(_run_single_scrape(competitor_id, competitor.name))
+
+    return {
+        "status": "started",
+        "competitor_id": str(competitor_id),
+        "message": f"Scrape started for {competitor.name}",
+    }
+
+
+async def _run_single_scrape(competitor_id: UUID, comp_name: str):
+    """Background task: run a single competitor scrape."""
+    import logging
+    log = logging.getLogger(__name__)
+    try:
+        async with AsyncSessionLocal() as db:
+            await scrape_competitor(competitor_id, db, trigger="manual")
+        log.info(f"[bg-scrape] Completed for {comp_name}")
+    except Exception as e:
+        log.error(f"[bg-scrape] Failed for {comp_name}: {e}")
+
+
+@router.get("/competitors/{competitor_id}/scrape-status")
+async def get_scrape_status(
+    competitor_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the latest scrape run status for a competitor (for polling)."""
+    latest = (await db.execute(
+        select(ScrapeRun)
+        .where(ScrapeRun.competitor_id == competitor_id)
+        .order_by(ScrapeRun.run_at.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+
+    if not latest:
+        return {"status": "none", "ads_found": 0, "new_ads": 0}
+
+    return {
+        "status": latest.status,
+        "ads_found": latest.ads_found,
+        "new_ads": latest.new_ads,
+        "ended_ads": latest.ended_ads,
+        "duration_seconds": latest.duration_seconds,
+        "error_message": latest.error_message,
+        "run_at": latest.run_at.isoformat() if latest.run_at else None,
+    }
 
 
 @router.post("/ads/{ad_id}/analyze", status_code=status.HTTP_200_OK)
@@ -535,3 +583,29 @@ async def get_analysis_status(
             "remaining": total_ads - total_analyzed,
         },
     }
+
+
+# ─── Delete competitor ────────────────────────────────────────────────────────
+
+@router.delete("/competitors/{competitor_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_competitor(
+    competitor_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Hard-delete a competitor and ALL its data (ads, analyses, scrape runs).
+    This is the only place hard-deletes are allowed — explicit user action.
+    """
+    competitor = await db.get(Competitor, competitor_id)
+    if not competitor:
+        raise HTTPException(status_code=404, detail="Competitor not found")
+
+    # Delete in correct order (or rely on CASCADE)
+    # ads -> ad_analyses (cascade), review_queue (cascade)
+    # scrape_runs -> cascade from competitor
+    # The FK on ads has ondelete=CASCADE from competitor, so deleting competitor
+    # cascades to ads -> ad_analyses, review_queue
+    await db.delete(competitor)
+    await db.commit()
+    return None

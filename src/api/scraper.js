@@ -19,8 +19,13 @@ export const getCompetitorAds = (id, params = {}) =>
 
 export const triggerScrape = (id) =>
   USE_MOCKS
-    ? mock({ status: 'completed', ads_found: 0, new_ads: 0, ended_ads: 0 })
+    ? mock({ status: 'started' })
     : client.post(`/scraper/competitors/${id}/scrape`).then((r) => r.data)
+
+export const getScrapeStatus = (id) =>
+  USE_MOCKS
+    ? mock({ status: 'completed', ads_found: 0, new_ads: 0 })
+    : client.get(`/scraper/competitors/${id}/scrape-status`).then((r) => r.data)
 
 export const analyzeAd = (adId) =>
   USE_MOCKS
@@ -51,3 +56,6 @@ export const getAnalyzeAllStatus = () =>
   USE_MOCKS
     ? mock({ running: false, progress: {}, totals: {} })
     : client.get('/scraper/analyze-all/status').then((r) => r.data)
+
+export const deleteCompetitor = (id) =>
+  client.delete(`/scraper/competitors/${id}`).then((r) => r.data)

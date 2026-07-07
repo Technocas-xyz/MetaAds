@@ -173,13 +173,19 @@ async def scrape_competitor(
             found_library_ids.add(library_id)
 
             if library_id in existing_map:
-                # Existing ad — update last_seen, keep active
+                # Existing ad — update last_seen, keep active, refresh URLs
                 existing_ad = existing_map[library_id]
                 existing_ad.last_seen = datetime.now(timezone.utc)
                 existing_ad.status = "approved"
-                # Update screenshot if we got a new one
+                # Refresh media URLs (Meta CDN URLs expire; re-scrape gets fresh ones)
+                if ad_data.get("ad_creative_url"):
+                    existing_ad.media_url = ad_data["ad_creative_url"]
+                if ad_data.get("video_poster_url"):
+                    existing_ad.video_poster_url = ad_data["video_poster_url"]
                 if ad_data.get("screenshot_url"):
                     existing_ad.screenshot_url = ad_data["screenshot_url"]
+                if ad_data.get("ad_video_url"):
+                    existing_ad.ad_video_url = ad_data["ad_video_url"]
             else:
                 # New ad — check DB again (belt-and-suspenders dedup)
                 # This catches cases where existing_map missed it (e.g. race condition)

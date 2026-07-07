@@ -8,6 +8,7 @@ import {
   triggerAnalyzeAll,
   analyzeAd,
   listRecentRuns,
+  deleteCompetitor,
 } from '../../api/scraper'
 
 export const scraperKeys = {
@@ -83,6 +84,16 @@ export function useTriggerAnalyzeAll() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: () => triggerAnalyzeAll(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: scraperKeys.all() })
+    },
+  })
+}
+
+export function useDeleteCompetitor() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (competitorId) => deleteCompetitor(competitorId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: scraperKeys.all() })
     },

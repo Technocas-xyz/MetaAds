@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-  timeout: 15000,
+  timeout: 30000,
 })
 
 client.interceptors.request.use((config) => {
