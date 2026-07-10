@@ -3,7 +3,7 @@ Angle Library endpoints — aggregations over ad_analyses.angle field.
 """
 
 from datetime import datetime, timezone, timedelta
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func, distinct
@@ -229,10 +229,12 @@ async def get_angles_trend(
 
 @router.get("", response_model=List[AngleRow])
 async def list_angles(
+    search: Optional[str] = Query(None),
+    angle_type: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all detected angles with stats, sorted by mentions desc."""
+    """List all detected angles with stats, sorted by mentions desc. Server-side filtering."""
     stmt = (
         select(
             AdAnalysis.angle,
@@ -242,7 +244,17 @@ async def list_angles(
             func.min(AdAnalysis.analyzed_at).label("first_seen"),
         )
         .where(AdAnalysis.angle.is_not(None))
-        .group_by(AdAnalysis.angle, AdAnalysis.angle_detail)
+    )
+
+    if angle_type and angle_type not in ('All Types', 'All'):
+        stmt = stmt.where(func.lower(AdAnalysis.angle) == func.lower(angle_type))
+    if search:
+        stmt = stmt.where(
+            AdAnalysis.angle.ilike(f"%{search}%") | AdAnalysis.angle_detail.ilike(f"%{search}%")
+        )
+
+    stmt = (
+        stmt.group_by(AdAnalysis.angle, AdAnalysis.angle_detail)
         .order_by(func.count(AdAnalysis.id).desc())
     )
     rows = (await db.execute(stmt)).all()

@@ -271,6 +271,63 @@ def extract_creative_image_from_element(element) -> Optional[str]:
     return None
 
 
+def _extract_media_only(card, wide_card) -> dict:
+    """Quick extraction of just media URLs from a card (for refreshing existing ads)."""
+    result = {
+        "ad_creative_url": None,
+        "video_poster_url": None,
+        "ad_video_url": None,
+        "is_video": False,
+    }
+    # Video poster (priority)
+    try:
+        video = card.query_selector("video")
+        if video:
+            result["is_video"] = True
+            result["ad_video_url"] = video.get_attribute("src") or ""
+            poster = video.get_attribute("poster")
+            if poster and ("scontent" in poster or "fbcdn" in poster):
+                result["video_poster_url"] = poster
+                result["ad_creative_url"] = poster
+    except Exception:
+        pass
+
+    # If no video in card, check wide_card
+    if not result["ad_creative_url"]:
+        try:
+            video = wide_card.query_selector("video")
+            if video:
+                result["is_video"] = True
+                result["ad_video_url"] = video.get_attribute("src") or ""
+                poster = video.get_attribute("poster")
+                if poster and ("scontent" in poster or "fbcdn" in poster):
+                    result["video_poster_url"] = poster
+                    result["ad_creative_url"] = poster
+        except Exception:
+            pass
+
+    # Large image (skip logo)
+    if not result["ad_creative_url"]:
+        try:
+            imgs = card.query_selector_all("img")
+            for img in imgs:
+                src = img.get_attribute("src") or ""
+                if not src or ("scontent" not in src and "fbcdn" not in src):
+                    continue
+                try:
+                    w = img.evaluate("el => el.naturalWidth || el.width || 0")
+                    h = img.evaluate("el => el.naturalHeight || el.height || 0")
+                except Exception:
+                    w, h = 0, 0
+                if w > 80 or h > 80:
+                    result["ad_creative_url"] = src
+                    break
+        except Exception:
+            pass
+
+    return result
+
+
 def build_url(comp: dict) -> str:
     if comp.get("page_id"):
         params = {
@@ -546,7 +603,14 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                 if library_id:
                     real_id_count += 1
                     if library_id in existing_ids:
+                        # EXISTING AD: still extract fresh media URLs for refresh
+                        # (Meta CDN URLs expire; re-scrape gets fresh ones)
                         skipped += 1
+                        fresh_media = _extract_media_only(card, wide_card)
+                        if fresh_media.get("ad_creative_url") or fresh_media.get("video_poster_url"):
+                            fresh_media["library_id"] = library_id
+                            fresh_media["_is_refresh"] = True  # Flag for scrape_competitor
+                            results.append(fresh_media)
                         continue
 
                 # ── Screenshot (optional — skip if MinIO down or too many cards) ──

@@ -3,7 +3,7 @@ Offer Library endpoints — aggregations over ad_analyses.offer_type field.
 """
 
 from datetime import datetime, timezone, timedelta
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func, distinct
@@ -263,10 +263,12 @@ async def get_offers_trend(
 
 @router.get("", response_model=List[OfferRow])
 async def list_offers(
+    search: Optional[str] = Query(None),
+    offer_type: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all detected offers with stats, sorted by mentions desc."""
+    """List all detected offers with stats, sorted by mentions desc. Server-side filtering."""
     stmt = (
         select(
             AdAnalysis.offer_value,
@@ -279,7 +281,17 @@ async def list_offers(
             AdAnalysis.offer_type.is_not(None),
             AdAnalysis.offer_type != "None",
         )
-        .group_by(AdAnalysis.offer_value, AdAnalysis.offer_type)
+    )
+
+    if offer_type and offer_type not in ('All Types', 'All Offers', 'All'):
+        stmt = stmt.where(func.lower(AdAnalysis.offer_type) == func.lower(offer_type))
+    if search:
+        stmt = stmt.where(
+            AdAnalysis.offer_value.ilike(f"%{search}%") | AdAnalysis.offer_type.ilike(f"%{search}%")
+        )
+
+    stmt = (
+        stmt.group_by(AdAnalysis.offer_value, AdAnalysis.offer_type)
         .order_by(func.count(AdAnalysis.id).desc())
     )
     rows = (await db.execute(stmt)).all()

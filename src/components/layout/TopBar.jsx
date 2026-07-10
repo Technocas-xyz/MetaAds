@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import {
@@ -14,6 +14,7 @@ import {
 import { cn } from '../../lib/utils'
 import useUIStore from '../../store/useUIStore'
 import useAuthStore from '../../store/useAuthStore'
+import client from '../../api/client'
 
 const MOCK_NOTIFICATIONS = 3
 
@@ -135,6 +136,51 @@ export default function Topbar() {
   const user   = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const searchRef = useRef(null)
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState(null)
+  const [showResults, setShowResults] = useState(false)
+  const containerRef = useRef(null)
+
+  // Debounced search
+  useEffect(() => {
+    if (!query || query.length < 2) {
+      setResults(null)
+      setShowResults(false)
+      return
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await client.get('/search', { params: { q: query } })
+        setResults(res.data)
+        setShowResults(true)
+      } catch {
+        setResults(null)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  // Close on outside click
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setShowResults(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const handleNavigate = (path) => {
+    setShowResults(false)
+    setQuery('')
+    navigate(path)
+  }
+
+  const totalResults = results
+    ? (results.competitors?.length || 0) + (results.ads?.length || 0) + (results.hooks?.length || 0) + (results.angles?.length || 0) + (results.offers?.length || 0)
+    : 0
 
   return (
     <header
@@ -160,7 +206,7 @@ export default function Topbar() {
       </button>
 
       {/* Global search */}
-      <div role="search" className="relative mx-auto w-full max-w-2xl">
+      <div ref={containerRef} role="search" className="relative mx-auto w-full max-w-2xl">
         <Search
           size={15}
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
@@ -171,6 +217,9 @@ export default function Topbar() {
           type="search"
           placeholder="Search ads, hooks, angles, offers, competitors…"
           aria-label="Global search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => { if (results && query.length >= 2) setShowResults(true) }}
           className={cn(
             'h-9 w-full rounded-lg border border-border-default bg-bg-app',
             'pl-9 pr-20 text-sm text-text-primary placeholder:text-text-tertiary',
@@ -190,6 +239,96 @@ export default function Topbar() {
             K
           </kbd>
         </div>
+
+        {/* Search results dropdown */}
+        {showResults && results && (
+          <div className="absolute top-full left-0 right-0 mt-1 max-h-[400px] overflow-y-auto rounded-xl border border-border-default bg-white shadow-lg z-50">
+            {totalResults === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-text-secondary">
+                No results for "{query}"
+              </div>
+            ) : (
+              <div className="py-2">
+                {/* Competitors */}
+                {results.competitors?.length > 0 && (
+                  <div>
+                    <p className="px-4 py-1 text-[10px] font-semibold text-text-tertiary uppercase">Competitors</p>
+                    {results.competitors.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => handleNavigate(`/competitors/${c.id}`)}
+                        className="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <span className="font-medium">{c.name}</span>
+                        <span className="text-xs text-text-tertiary">{c.domain}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Ads */}
+                {results.ads?.length > 0 && (
+                  <div>
+                    <p className="px-4 py-1 text-[10px] font-semibold text-text-tertiary uppercase">Ads</p>
+                    {results.ads.map((a) => (
+                      <button
+                        key={a.id}
+                        onClick={() => handleNavigate(`/ads/${a.id}`)}
+                        className="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-gray-50 truncate"
+                      >
+                        {a.headline || 'Untitled Ad'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Hooks */}
+                {results.hooks?.length > 0 && (
+                  <div>
+                    <p className="px-4 py-1 text-[10px] font-semibold text-text-tertiary uppercase">Hooks</p>
+                    {results.hooks.map((h, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleNavigate('/hooks')}
+                        className="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-gray-50 truncate"
+                      >
+                        <span className="text-xs text-primary-600 mr-1">[{h.type}]</span> {h.text}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Angles */}
+                {results.angles?.length > 0 && (
+                  <div>
+                    <p className="px-4 py-1 text-[10px] font-semibold text-text-tertiary uppercase">Angles</p>
+                    {results.angles.map((a, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleNavigate('/angles')}
+                        className="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-gray-50"
+                      >
+                        {a.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Offers */}
+                {results.offers?.length > 0 && (
+                  <div>
+                    <p className="px-4 py-1 text-[10px] font-semibold text-text-tertiary uppercase">Offers</p>
+                    {results.offers.map((o, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleNavigate('/offers')}
+                        className="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-gray-50"
+                      >
+                        {o.type}{o.value && o.value !== 'None' ? ` — ${o.value}` : ''}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right actions */}

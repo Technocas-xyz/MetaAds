@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for psycopg2 + general build
+# Install system dependencies for psycopg2 + general build + curl for healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
@@ -14,6 +14,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Chromium browser + all system libraries for Playwright
+# Must run AFTER pip install (playwright package needed) and BEFORE USER switch
 RUN playwright install --with-deps chromium
 
 # Copy application code

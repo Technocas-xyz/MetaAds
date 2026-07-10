@@ -183,28 +183,67 @@ async def list_ads(
     per_page: int = Query(20, ge=1, le=100),
     platform: Optional[str] = None,
     competitor_id: Optional[UUID] = None,
+    competitor: Optional[str] = Query(None),
     status_filter: Optional[str] = Query(None, alias="status"),
     min_confidence: Optional[float] = Query(None, ge=0.0, le=100.0),
+    hook_type: Optional[str] = Query(None),
+    angle: Optional[str] = Query(None),
+    offer: Optional[str] = Query(None),
+    confidence: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     sort: str = Query("-captured_at"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Paginated list of ads with filters. Sort prefix `-` for DESC."""
+    """Paginated list of ads with full server-side filters."""
     # Base query with eager-loaded relationships
     stmt = select(Ad).options(
         selectinload(Ad.competitor),
         selectinload(Ad.analysis),
     )
 
-    # Filters
+    # --- Filters ---
     if platform:
         stmt = stmt.where(Ad.platform == platform)
     if competitor_id:
         stmt = stmt.where(Ad.competitor_id == competitor_id)
+    if competitor:
+        # Filter by competitor name (exact, case-insensitive)
+        stmt = stmt.join(Competitor, Ad.competitor_id == Competitor.id).where(
+            func.lower(Competitor.name) == func.lower(competitor)
+        )
     if status_filter:
         stmt = stmt.where(Ad.status == status_filter)
+
+    # Join to AdAnalysis for analysis-based filters
+    needs_analysis_join = any([hook_type, angle, offer, confidence, min_confidence])
+    if needs_analysis_join:
+        # Use outerjoin so we don't lose ads without analysis when only min_confidence is set
+        stmt = stmt.join(AdAnalysis, Ad.id == AdAnalysis.ad_id)
+
     if min_confidence is not None:
-        stmt = stmt.join(AdAnalysis).where(AdAnalysis.confidence_score >= min_confidence)
+        stmt = stmt.where(AdAnalysis.confidence_score >= min_confidence)
+    if hook_type:
+        stmt = stmt.where(func.lower(AdAnalysis.hook_type) == func.lower(hook_type))
+    if angle:
+        stmt = stmt.where(func.lower(AdAnalysis.angle) == func.lower(angle))
+    if offer:
+        stmt = stmt.where(func.lower(AdAnalysis.offer_type) == func.lower(offer))
+    if confidence:
+        # Confidence level: High (>=70), Medium (40-69), Low (<40)
+        if confidence == "High":
+            stmt = stmt.where(AdAnalysis.confidence_score >= 70)
+        elif confidence == "Medium":
+            stmt = stmt.where(AdAnalysis.confidence_score >= 40, AdAnalysis.confidence_score < 70)
+        elif confidence == "Low":
+            stmt = stmt.where(AdAnalysis.confidence_score < 40)
+
+    # Free-text search (ILIKE on headline + primary_text)
+    if search:
+        like_pattern = f"%{search}%"
+        stmt = stmt.where(
+            Ad.headline.ilike(like_pattern) | Ad.primary_text.ilike(like_pattern)
+        )
 
     # Count total before pagination
     count_stmt = select(func.count()).select_from(stmt.subquery())

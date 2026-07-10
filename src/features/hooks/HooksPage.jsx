@@ -782,11 +782,19 @@ export default function HookLibraryPage() {
   const [page, setPage]             = useState(1)
   const [selectedHook, setSelectedHook] = useState(null)
 
+  // Build server-side query params
+  const queryParams = useMemo(() => {
+    const p = {}
+    if (applied.search) p.search = applied.search
+    if (applied.hookType && applied.hookType !== 'All Types') p.hook_type = applied.hookType
+    return p
+  }, [applied])
+
   const { data: summary,   isLoading: sumLoading   } = useHooksSummary()
   const { data: typeDist,  isLoading: distLoading  } = useHooksTypeDist()
   const { data: perfData,  isLoading: perfLoading  } = useHooksPerf()
   const { data: trendData, isLoading: trendLoading } = useHooksTrend()
-  const { data: tableData, isLoading: tableLoading } = useHooksTable()
+  const { data: tableData, isLoading: tableLoading } = useHooksTable(queryParams)
 
   const changeFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }))
 
@@ -801,16 +809,10 @@ export default function HookLibraryPage() {
     setPage(1)
   }
 
+  // Additional client-side filtering for fields not supported by backend
   const filtered = useMemo(() => {
     if (!tableData) return []
     return tableData.filter((row) => {
-      const q = applied.search.toLowerCase()
-      if (q && !row.text.toLowerCase().includes(q) && !row.description.toLowerCase().includes(q))
-        return false
-      if (applied.hookType !== 'All Types' && row.type !== applied.hookType)
-        return false
-      if (applied.offerType !== 'All Offers' && row.offer_type !== applied.offerType)
-        return false
       if (
         applied.competitor !== 'All Competitors' &&
         !row.competitors.some((c) => c.name === applied.competitor)

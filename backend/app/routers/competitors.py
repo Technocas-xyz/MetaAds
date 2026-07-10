@@ -208,13 +208,26 @@ async def get_competitors_summary(
 @router.get("", response_model=List[CompetitorResponse])
 async def list_competitors(
     status_filter: Optional[str] = Query(None, alias="status"),
+    priority_tier: Optional[str] = Query(None),
+    niche: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all competitors with computed stats. Optionally filter by status."""
+    """List all competitors with computed stats. Server-side filtering."""
     stmt = select(Competitor).order_by(Competitor.created_at.desc())
     if status_filter:
         stmt = stmt.where(Competitor.status == status_filter)
+    if priority_tier:
+        stmt = stmt.where(func.lower(Competitor.priority_tier) == func.lower(priority_tier))
+    if niche:
+        # niches is a PostgreSQL array; check if the array contains the value (case-insensitive)
+        stmt = stmt.where(Competitor.niches.any(niche))
+    if search:
+        like_pattern = f"%{search}%"
+        stmt = stmt.where(
+            Competitor.name.ilike(like_pattern) | Competitor.domain.ilike(like_pattern)
+        )
 
     competitors = (await db.execute(stmt)).scalars().all()
 

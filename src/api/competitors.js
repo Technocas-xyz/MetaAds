@@ -1,10 +1,10 @@
 import client, { USE_MOCKS, mock } from './transport'
 import * as fx from './_fixtures/competitors'
 
-export const listCompetitors = () =>
+export const listCompetitors = (params) =>
   USE_MOCKS
     ? mock(fx.competitorsList)
-    : client.get('/competitors').then((r) => r.data)
+    : client.get('/competitors', { params }).then((r) => r.data)
 
 export const getCompetitor = (id) =>
   USE_MOCKS

@@ -237,10 +237,12 @@ async def get_hooks_trend(
 
 @router.get("", response_model=List[HookRow])
 async def list_hooks(
+    search: Optional[str] = Query(None),
+    hook_type: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all detected hooks with stats, sorted by mentions desc."""
+    """List all detected hooks with stats, sorted by mentions desc. Server-side filtering."""
     # Aggregate by hook_text
     stmt = (
         select(
@@ -251,7 +253,16 @@ async def list_hooks(
             func.min(AdAnalysis.analyzed_at).label("first_seen"),
         )
         .where(AdAnalysis.hook_text.is_not(None))
-        .group_by(AdAnalysis.hook_text, AdAnalysis.hook_type)
+    )
+
+    # Filters
+    if hook_type and hook_type not in ('All Types', 'All'):
+        stmt = stmt.where(func.lower(AdAnalysis.hook_type) == func.lower(hook_type))
+    if search:
+        stmt = stmt.where(AdAnalysis.hook_text.ilike(f"%{search}%"))
+
+    stmt = (
+        stmt.group_by(AdAnalysis.hook_text, AdAnalysis.hook_type)
         .order_by(func.count(AdAnalysis.id).desc())
     )
     rows = (await db.execute(stmt)).all()

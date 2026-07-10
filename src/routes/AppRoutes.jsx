@@ -11,6 +11,7 @@ const Ads                   = lazy(() => import('../features/ads-library/AdsLibr
 const AddNewAd              = lazy(() => import('../features/ads-library/AddNewAdPage'))
 const AdDetail              = lazy(() => import('../features/ad-detail/AdDetailPage'))
 const AIAnalysis            = lazy(() => import('../features/ai-analysis/AIAnalysisPage'))
+const CompetitorAnalysis    = lazy(() => import('../features/ai-analysis/CompetitorAnalysisPage'))
 const Hooks                 = lazy(() => import('../features/hooks/HooksPage'))
 const Angles                = lazy(() => import('../features/angles/AnglesPage'))
 const Offers                = lazy(() => import('../features/offers/OffersPage'))
@@ -89,6 +90,7 @@ export default function AppRoutes() {
         <Route path="/ads/new"        element={<AddNewAd />} />
         <Route path="/ads/:id"        element={<AdDetail />} />
         <Route path="/ads"            element={<Ads />} />
+        <Route path="/ai-analysis/competitors/:id" element={<CompetitorAnalysis />} />
         <Route path="/ai-analysis"    element={<AIAnalysis />} />
         <Route path="/hooks"          element={<Hooks />} />
         <Route path="/angles"         element={<Angles />} />

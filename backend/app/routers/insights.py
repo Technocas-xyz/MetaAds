@@ -6,6 +6,7 @@ Pure data aggregation from stored analysis results.
 """
 
 from collections import Counter
+from math import ceil
 from typing import Optional
 from uuid import UUID
 
@@ -372,4 +373,100 @@ async def get_overall_insights(
         "competitor_comparison": competitor_comparison,
         "recommendation": " ".join(recommendation_parts),
         "example_hooks": example_hooks,
+    }
+
+
+# ─── Per-competitor analyzed ads (for the detail page) ────────────────────────
+
+@router.get("/competitors/{competitor_id}/ads")
+async def get_competitor_analyzed_ads(
+    competitor_id: UUID,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    hook_type: Optional[str] = Query(None),
+    angle: Optional[str] = Query(None),
+    offer_type: Optional[str] = Query(None),
+    confidence: Optional[str] = Query(None),
+    winners_only: bool = Query(False),
+    search: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Paginated list of ANALYZED ads for one competitor, with filters.
+    Used by the per-competitor analysis detail page.
+    """
+    from math import ceil
+
+    # Base: only ads that have an analysis row
+    stmt = (
+        select(Ad, AdAnalysis)
+        .join(AdAnalysis, Ad.id == AdAnalysis.ad_id)
+        .where(Ad.competitor_id == competitor_id)
+    )
+
+    # Filters
+    if hook_type:
+        stmt = stmt.where(func.lower(AdAnalysis.hook_type) == func.lower(hook_type))
+    if angle:
+        stmt = stmt.where(func.lower(AdAnalysis.angle) == func.lower(angle))
+    if offer_type:
+        stmt = stmt.where(func.lower(AdAnalysis.offer_type) == func.lower(offer_type))
+    if confidence:
+        if confidence == "High":
+            stmt = stmt.where(AdAnalysis.confidence_score >= 70)
+        elif confidence == "Medium":
+            stmt = stmt.where(AdAnalysis.confidence_score >= 40, AdAnalysis.confidence_score < 70)
+        elif confidence == "Low":
+            stmt = stmt.where(AdAnalysis.confidence_score < 40)
+    if winners_only:
+        stmt = stmt.where(Ad.days_running >= 90)
+    if search:
+        like_pattern = f"%{search}%"
+        stmt = stmt.where(
+            Ad.headline.ilike(like_pattern) | Ad.primary_text.ilike(like_pattern)
+        )
+
+    # Count total matching
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    # Order by days_running desc (most proven first)
+    stmt = stmt.order_by(Ad.days_running.desc())
+
+    # Paginate
+    stmt = stmt.offset((page - 1) * per_page).limit(per_page)
+    rows = (await db.execute(stmt)).all()
+
+    total_pages = ceil(total / per_page) if per_page else 0
+
+    # Build response
+    ads_out = []
+    for ad, analysis in rows:
+        ads_out.append({
+            "id": str(ad.id),
+            "ad_library_id": ad.ad_library_id,
+            "headline": ad.headline,
+            "primary_text": ad.primary_text,
+            "media_url": ad.media_url,
+            "is_video": ad.is_video,
+            "hook_type": analysis.hook_type,
+            "hook_text": analysis.hook_text,
+            "angle": analysis.angle,
+            "offer_type": analysis.offer_type,
+            "offer_value": analysis.offer_value,
+            "confidence_score": analysis.confidence_score,
+            "days_running": ad.days_running,
+            "first_seen": ad.first_seen.isoformat() if ad.first_seen else None,
+            "status": ad.status,
+        })
+
+    return {
+        "data": ads_out,
+        "meta": {
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+        },
     }

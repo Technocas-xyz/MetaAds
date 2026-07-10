@@ -76,3 +76,78 @@ async def root():
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "environment": settings.ENVIRONMENT}
+
+
+@app.get("/api/search")
+async def global_search(
+    q: str = "",
+):
+    """
+    Global search across entities — lightweight proxy that delegates to
+    individual routers. Returns up to 5 results per category.
+    """
+    from sqlalchemy import select, func
+    from app.database import AsyncSessionLocal
+    from app.models.ad import Ad
+    from app.models.ad_analysis import AdAnalysis
+    from app.models.competitor import Competitor
+
+    if not q or len(q) < 2:
+        return {"ads": [], "competitors": [], "hooks": [], "angles": [], "offers": []}
+
+    like = f"%{q}%"
+
+    async with AsyncSessionLocal() as db:
+        # Competitors
+        comp_stmt = (
+            select(Competitor.id, Competitor.name, Competitor.domain)
+            .where(Competitor.name.ilike(like) | Competitor.domain.ilike(like))
+            .limit(5)
+        )
+        comps = (await db.execute(comp_stmt)).all()
+
+        # Ads (headline / primary_text)
+        ads_stmt = (
+            select(Ad.id, Ad.headline, Ad.media_url)
+            .where(Ad.headline.ilike(like) | Ad.primary_text.ilike(like))
+            .order_by(Ad.captured_at.desc())
+            .limit(5)
+        )
+        ads = (await db.execute(ads_stmt)).all()
+
+        # Hooks (hook_text)
+        hooks_stmt = (
+            select(AdAnalysis.hook_text, AdAnalysis.hook_type)
+            .where(AdAnalysis.hook_text.ilike(like))
+            .distinct()
+            .limit(5)
+        )
+        hooks = (await db.execute(hooks_stmt)).all()
+
+        # Angles
+        angles_stmt = (
+            select(AdAnalysis.angle)
+            .where(AdAnalysis.angle.ilike(like))
+            .distinct()
+            .limit(5)
+        )
+        angles = (await db.execute(angles_stmt)).all()
+
+        # Offers
+        offers_stmt = (
+            select(AdAnalysis.offer_type, AdAnalysis.offer_value)
+            .where(
+                AdAnalysis.offer_type.ilike(like) | AdAnalysis.offer_value.ilike(like)
+            )
+            .distinct()
+            .limit(5)
+        )
+        offers = (await db.execute(offers_stmt)).all()
+
+    return {
+        "competitors": [{"id": str(c[0]), "name": c[1], "domain": c[2]} for c in comps],
+        "ads": [{"id": str(a[0]), "headline": a[1], "media_url": a[2]} for a in ads],
+        "hooks": [{"text": h[0], "type": h[1]} for h in hooks],
+        "angles": [{"name": a[0]} for a in angles],
+        "offers": [{"type": o[0], "value": o[1]} for o in offers],
+    }

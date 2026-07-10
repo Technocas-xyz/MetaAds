@@ -800,11 +800,19 @@ export default function OfferLibraryPage() {
   const [pageSize, setPageSize]         = useState(10)
   const [selectedOffer, setSelectedOffer] = useState(null)
 
+  // Build server-side query params
+  const queryParams = useMemo(() => {
+    const p = {}
+    if (applied.search) p.search = applied.search
+    if (applied.offerType && applied.offerType !== 'All Types') p.offer_type = applied.offerType
+    return p
+  }, [applied])
+
   const { data: summary,   isLoading: sumLoading   } = useOffersSummary()
   const { data: typeDist,  isLoading: distLoading  } = useOffersTypeDist()
   const { data: perfData,  isLoading: perfLoading  } = useOffersPerf()
   const { data: trendData, isLoading: trendLoading } = useOffersTrend()
-  const { data: tableData, isLoading: tableLoading } = useOffersTable()
+  const { data: tableData, isLoading: tableLoading } = useOffersTable(queryParams)
 
   const changeFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }))
 
@@ -812,20 +820,14 @@ export default function OfferLibraryPage() {
   const clearFilters = () => { setFilters(DEFAULT_FILTERS); setApplied(DEFAULT_FILTERS); setPage(1) }
   const handlePageSizeChange = (n) => { setPageSize(n); setPage(1) }
 
+  // Additional client-side filtering for fields not supported by backend
   const filtered = useMemo(() => {
     if (!tableData) return []
     return tableData.filter((row) => {
-      const q = applied.search.toLowerCase()
-      if (q && !row.text.toLowerCase().includes(q) && !row.description.toLowerCase().includes(q))
-        return false
-      if (applied.offerType !== 'All Types' && row.type !== applied.offerType)
-        return false
       if (
         applied.competitor !== 'All Competitors' &&
         !row.competitors.some((c) => c.name === applied.competitor)
       )
-        return false
-      if (applied.hookType !== 'All Types' && !row.related_hooks.includes(applied.hookType))
         return false
       if (applied.confidence === 'High (80%+)' && row.avg_confidence < 80) return false
       if (

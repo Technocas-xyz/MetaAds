@@ -16,20 +16,21 @@ export default function CompetitorsPage() {
   const [page,      setPage]        = useState(1)
   const [perPage,   setPerPage]     = useState(7)
 
-  const { data: competitors = [], isLoading }         = useCompetitors()
+  // Build server-side query params from filters
+  const queryParams = useMemo(() => {
+    const p = {}
+    if (filters.status)       p.status = filters.status
+    if (filters.priorityTier) p.priority_tier = filters.priorityTier
+    if (filters.niche)        p.niche = filters.niche
+    return p
+  }, [filters])
+
+  const { data: competitors = [], isLoading }         = useCompetitors(queryParams)
   const { data: summary,         isLoading: kpiLoading } = useCompetitorsSummary()
 
-  // Client-side filter + paginate (mock mode; real mode pushes params to API)
-  const filtered = useMemo(() => {
-    let list = competitors
-    if (filters.status)      list = list.filter((c) => c.status === filters.status)
-    if (filters.priorityTier) list = list.filter((c) => c.priority_tier === filters.priorityTier)
-    if (filters.niche)       list = list.filter((c) => c.niches.includes(filters.niche))
-    return list
-  }, [competitors, filters])
-
-  const total  = filtered.length
-  const paged  = filtered.slice((page - 1) * perPage, page * perPage)
+  // Pagination (server returns all matching; paginate client-side for now)
+  const total  = competitors.length
+  const paged  = competitors.slice((page - 1) * perPage, page * perPage)
 
   const handleFilterChange = (next) => { setFilters(next); setPage(1) }
   const handleClearFilters = ()     => { setFilters(EMPTY_FILTERS); setPage(1) }

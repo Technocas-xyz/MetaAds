@@ -3,15 +3,15 @@ import { listCompetitors, getCompetitor, createCompetitor, getCompetitorsSummary
 
 export const competitorKeys = {
   all:     () => ['competitors'],
-  list:    () => ['competitors', 'list'],
+  list:    (params) => ['competitors', 'list', params ?? {}],
   detail:  (id) => ['competitors', 'detail', id],
   summary: () => ['competitors', 'summary'],
 }
 
-export function useCompetitors() {
+export function useCompetitors(params) {
   return useQuery({
-    queryKey: competitorKeys.list(),
-    queryFn:  listCompetitors,
+    queryKey: competitorKeys.list(params),
+    queryFn:  () => listCompetitors(params),
   })
 }
 
