@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -11,10 +11,14 @@ import {
   BarChart3,
   Filter,
   Trash2,
+  Brain,
+  Loader2,
 } from 'lucide-react'
 import KPICard from '../../components/ui/KPICard'
 import Button from '../../components/ui/Button'
+import ProgressBar from '../../components/ui/ProgressBar'
 import { useScraperCompetitor, useCompetitorAds, useTriggerScrape, useAnalyzeAd, useDeleteCompetitor } from '../../hooks/queries/useScraper'
+import { triggerCompetitorAnalyze, getCompetitorAnalyzeStatus } from '../../api/scraper'
 import toast from 'react-hot-toast'
 import AdCard from './components/AdCard'
 import AIPatternsPanel from './components/AIPatternsPanel'
@@ -37,8 +41,12 @@ export default function ScraperCompetitorDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const perPage = 20
 
-  const { data: competitor, isLoading: compLoading, isError } = useScraperCompetitor(id)
-  const { data: adsResponse, isLoading: adsLoading } = useCompetitorAds(id, {
+  // Analysis state
+  const [analyzeRunning, setAnalyzeRunning] = useState(false)
+  const [analyzeProgress, setAnalyzeProgress] = useState(null)
+
+  const { data: competitor, isLoading: compLoading, isError, refetch: refetchComp } = useScraperCompetitor(id)
+  const { data: adsResponse, isLoading: adsLoading, refetch: refetchAds } = useCompetitorAds(id, {
     page,
     per_page: perPage,
     filter,
@@ -50,6 +58,74 @@ export default function ScraperCompetitorDetailPage() {
   const ads = adsResponse?.data || []
   const totalAds = adsResponse?.total || 0
   const totalPages = adsResponse?.total_pages || 0
+
+  // Poll analyze status on mount (resume if job was running)
+  const pollAnalyzeStatus = useCallback(() => {
+    const interval = setInterval(async () => {
+      try {
+        const status = await getCompetitorAnalyzeStatus(id)
+        if (status.running) {
+          setAnalyzeRunning(true)
+          setAnalyzeProgress(status.progress)
+        } else {
+          setAnalyzeRunning(false)
+          if (analyzeProgress && analyzeProgress.completed > 0) {
+            toast.success(`Analyzed ${status.progress.completed} ads${status.progress.failed > 0 ? ` (${status.progress.failed} failed)` : ''}`)
+            refetchAds()
+            refetchComp()
+          }
+          setAnalyzeProgress(status.progress)
+          clearInterval(interval)
+        }
+      } catch {
+        clearInterval(interval)
+        setAnalyzeRunning(false)
+      }
+    }, 3000)
+    return interval
+  }, [id, analyzeProgress, refetchAds, refetchComp])
+
+  // Check status on mount
+  useEffect(() => {
+    let interval
+    const checkInitial = async () => {
+      try {
+        const status = await getCompetitorAnalyzeStatus(id)
+        if (status.running) {
+          setAnalyzeRunning(true)
+          setAnalyzeProgress(status.progress)
+          interval = pollAnalyzeStatus()
+        } else {
+          setAnalyzeProgress(status.progress)
+        }
+      } catch {}
+    }
+    checkInitial()
+    return () => { if (interval) clearInterval(interval) }
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleAnalyzeCompetitor = async () => {
+    try {
+      const res = await triggerCompetitorAnalyze(id)
+      if (res.status === 'all_analyzed') {
+        toast('All ads already analyzed', { icon: '✅' })
+        return
+      }
+      if (res.status === 'already_running') {
+        toast('Analysis already running', { icon: '⏳' })
+        return
+      }
+      toast.success(`Analysis started for ${res.pending} pending ads`)
+      setAnalyzeRunning(true)
+      setAnalyzeProgress({ total: res.pending, completed: 0, failed: 0 })
+      // Start polling
+      const interval = pollAnalyzeStatus()
+      // Store for cleanup
+      window.__compAnalyzeInterval = interval
+    } catch {
+      toast.error('Failed to start analysis')
+    }
+  }
 
   const handleRunNow = () => {
     triggerMutation.mutate(id, {
@@ -151,6 +227,16 @@ export default function ScraperCompetitorDetailPage() {
           >
             {triggerMutation.isPending ? 'Scraping...' : 'Run Now'}
           </Button>
+          <Button
+            variant="outline"
+            size="md"
+            icon={analyzeRunning ? Loader2 : Brain}
+            onClick={handleAnalyzeCompetitor}
+            disabled={analyzeRunning}
+            className={analyzeRunning ? '[&_svg]:animate-spin' : ''}
+          >
+            {analyzeRunning ? 'Analyzing...' : 'Analyze'}
+          </Button>
           <button
             onClick={() => setShowDeleteConfirm(true)}
             className="rounded-lg border border-danger-200 p-2 text-danger-500 hover:bg-danger-50"
@@ -237,6 +323,21 @@ export default function ScraperCompetitorDetailPage() {
 
       {/* AI Insights Panel */}
       <CompetitorInsightsPanel competitorId={id} />
+
+      {/* Per-competitor analyze progress bar */}
+      {analyzeRunning && analyzeProgress && analyzeProgress.total > 0 && (
+        <div className="rounded-card border border-primary-200 bg-primary-50/30 p-4 shadow-card">
+          <div className="flex items-center gap-2 mb-2">
+            <Loader2 size={14} className="animate-spin text-primary-600" />
+            <span className="text-xs font-semibold text-primary-700">Analyzing ads...</span>
+          </div>
+          <ProgressBar
+            total={analyzeProgress.total}
+            completed={analyzeProgress.completed}
+            failed={analyzeProgress.failed}
+          />
+        </div>
+      )}
 
       {/* Filter tabs + Patterns toggle */}
       <div className="flex items-center justify-between">

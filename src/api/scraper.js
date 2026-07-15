@@ -44,8 +44,12 @@ export const triggerScrapeAll = () =>
 
 export const getScrapeAllStatus = () =>
   USE_MOCKS
-    ? mock({ running: false, progress: {} })
+    ? mock({ running: false, progress: {}, job: {} })
     : client.get('/scraper/scrape-all/status').then((r) => r.data)
+
+export const pauseScrapeAll = () => client.post('/scraper/scrape-all/pause').then((r) => r.data)
+export const resumeScrapeAll = () => client.post('/scraper/scrape-all/resume').then((r) => r.data)
+export const stopScrapeAll = () => client.post('/scraper/scrape-all/stop').then((r) => r.data)
 
 export const triggerAnalyzeAll = () =>
   USE_MOCKS
@@ -54,8 +58,28 @@ export const triggerAnalyzeAll = () =>
 
 export const getAnalyzeAllStatus = () =>
   USE_MOCKS
-    ? mock({ running: false, progress: {}, totals: {} })
+    ? mock({ running: false, progress: {}, job: {} })
     : client.get('/scraper/analyze-all/status').then((r) => r.data)
+
+export const pauseAnalyzeAll = () => client.post('/scraper/analyze-all/pause').then((r) => r.data)
+export const resumeAnalyzeAll = () => client.post('/scraper/analyze-all/resume').then((r) => r.data)
+export const stopAnalyzeAll = () => client.post('/scraper/analyze-all/stop').then((r) => r.data)
+
+export const triggerCompetitorAnalyze = (id) =>
+  USE_MOCKS
+    ? mock({ status: 'started' })
+    : client.post(`/scraper/competitors/${id}/analyze`).then((r) => r.data)
+
+export const getCompetitorAnalyzeStatus = (id) =>
+  USE_MOCKS
+    ? mock({ running: false, progress: {}, totals: {} })
+    : client.get(`/scraper/competitors/${id}/analyze-status`).then((r) => r.data)
 
 export const deleteCompetitor = (id) =>
   client.delete(`/scraper/competitors/${id}`).then((r) => r.data)
+
+export const getScheduleStatus = () =>
+  client.get('/scraper/schedule/status').then((r) => r.data)
+
+export const toggleSchedule = (enabled) =>
+  client.post('/scraper/schedule/toggle', { enabled }).then((r) => r.data)

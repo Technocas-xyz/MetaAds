@@ -17,12 +17,12 @@ import re
 from typing import List, Optional
 from uuid import UUID
 
-from groq import AsyncGroq
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
+from app.services.ai_client import chat_completion
 from app.models.ad import Ad
 from app.models.ad_analysis import AdAnalysis
 from app.models.brief import Brief
@@ -185,22 +185,19 @@ async def generate_brief(
         data_limited=data_limited,
     )
 
-    # ── 4. Call Groq ──────────────────────────────────────────────────────────
-    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-    response = await client.chat.completions.create(
-        model=settings.GROQ_MODEL,
+    # ── 4. Call AI ───────────────────────────────────────────────────────────
+    raw_output = await chat_completion(
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.4,
         max_tokens=1500,
-        response_format={"type": "json_object"},
+        json_mode=True,
     )
 
-    raw_output = response.choices[0].message.content
     if not raw_output:
-        raise ValueError("Groq returned empty response")
+        raise ValueError("AI provider returned empty response")
 
     # ── 5. Parse JSON ─────────────────────────────────────────────────────────
     try:

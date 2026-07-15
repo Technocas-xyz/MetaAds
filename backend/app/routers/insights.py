@@ -149,7 +149,10 @@ async def get_all_competitor_insights(
     """
     # Get all competitors
     comps = (await db.execute(
-        select(Competitor).where(Competitor.status == "Active").order_by(Competitor.name)
+        select(Competitor).where(
+            Competitor.status == "Active",
+            Competitor.is_own_brand == False,
+        ).order_by(Competitor.name)
     )).scalars().all()
 
     results = []
@@ -219,6 +222,7 @@ async def get_overall_insights(
         select(Ad, AdAnalysis, Competitor.name)
         .join(AdAnalysis, Ad.id == AdAnalysis.ad_id)
         .join(Competitor, Ad.competitor_id == Competitor.id)
+        .where(Competitor.is_own_brand == False)
         .order_by(Ad.days_running.desc())
     )
     rows = (await db.execute(stmt)).all()

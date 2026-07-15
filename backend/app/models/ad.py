@@ -73,6 +73,9 @@ class Ad(TimestampedBase):
     captured_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    removed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # Misc
     variants: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

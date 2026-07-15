@@ -177,6 +177,10 @@ async def scrape_competitor(
                 existing_ad = existing_map[library_id]
                 existing_ad.last_seen = datetime.now(timezone.utc)
                 existing_ad.status = "approved"
+                # If it was previously removed, un-mark it (reappeared on Meta)
+                if existing_ad.removed_at:
+                    existing_ad.removed_at = None
+                    logger.info(f"[scraper] Ad {library_id} reappeared — un-marking removal")
                 # Refresh media URLs (Meta CDN URLs expire; re-scrape gets fresh ones)
                 if ad_data.get("ad_creative_url"):
                     existing_ad.media_url = ad_data["ad_creative_url"]
@@ -184,6 +188,23 @@ async def scrape_competitor(
                     existing_ad.video_poster_url = ad_data["video_poster_url"]
                 if ad_data.get("screenshot_url"):
                     existing_ad.screenshot_url = ad_data["screenshot_url"]
+                elif ad_data.get("ad_creative_url") and not existing_ad.screenshot_url:
+                    # Re-scrape: if scraper stored a MinIO image, use it;
+                    # otherwise try downloading the creative to MinIO now
+                    try:
+                        from app.core.storage.s3_writer import download_and_store_image
+                        creative_url = ad_data.get("ad_creative_url") or ad_data.get("video_poster_url")
+                        if creative_url and ("scontent" in creative_url or "fbcdn" in creative_url):
+                            ext = "jpg"
+                            if ".png" in creative_url:
+                                ext = "png"
+                            brand_slug = (competitor.name or "unknown").lower().replace(" ", "_")[:30]
+                            storage_key = f"ad-creatives/{brand_slug}/{library_id}.{ext}"
+                            stored_url = await download_and_store_image(creative_url, storage_key)
+                            if stored_url:
+                                existing_ad.screenshot_url = stored_url
+                    except Exception:
+                        pass
                 if ad_data.get("ad_video_url"):
                     existing_ad.ad_video_url = ad_data["ad_video_url"]
             else:
@@ -253,8 +274,10 @@ async def scrape_competitor(
 
         if run_looks_healthy:
             for library_id, existing_ad in existing_map.items():
-                if library_id not in found_library_ids and existing_ad.status != "flagged":
-                    existing_ad.status = "flagged"
+                if library_id not in found_library_ids and existing_ad.status not in ("flagged", "removed"):
+                    existing_ad.status = "removed"
+                    existing_ad.removed_at = datetime.now(timezone.utc)
+                    # Freeze days_running at time of removal (don't keep counting up)
                     existing_ad.last_seen = datetime.now(timezone.utc)
                     ended_count += 1
         elif len(found_library_ids) == 0:
@@ -779,6 +802,31 @@ def _process_card_sync(card, page, idx: int, timestamp: str, brand: str) -> Opti
 
     # Multiple versions
     ad["has_multiple_versions"] = "multiple versions" in full_text.lower()
+
+    # ── DOWNLOAD + STORE AD CREATIVE IMAGE IN MINIO ───────────────────────
+    # This ensures the image survives Meta CDN expiry / hotlink 403s
+    try:
+        from app.core.storage.s3_writer import download_and_store_image_sync
+
+        library_id = ad.get("library_id") or f"unknown_{idx}"
+        creative_url = ad.get("ad_creative_url") or ad.get("video_poster_url")
+
+        if creative_url and ("scontent" in creative_url or "fbcdn" in creative_url):
+            # Determine file extension from URL
+            ext = "jpg"
+            if ".png" in creative_url:
+                ext = "png"
+            elif ".webp" in creative_url:
+                ext = "webp"
+
+            storage_key = f"ad-creatives/{brand}/{library_id}.{ext}"
+            stored_url = download_and_store_image_sync(creative_url, storage_key)
+            if stored_url:
+                ad["screenshot_url"] = stored_url
+                logger.debug(f"[minio] Stored creative for ad {library_id}: {stored_url}")
+    except Exception as e:
+        # Non-fatal: keep original URLs as fallback
+        logger.debug(f"[minio] Creative store failed for card {idx}: {e}")
 
     # Return if we got something useful
     has_screenshot = bool(ad.get("screenshot_url"))

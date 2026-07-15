@@ -25,6 +25,7 @@ import {
   Zap,
   X,
   Radar,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import useUIStore from '../../store/useUIStore'
@@ -48,6 +49,8 @@ const NAV_GROUPS = [
     items: [
       { label: 'Competitors',   to: '/competitors',          icon: Users2 },
       { label: 'Ad Scraper',    to: '/scraper/competitors',  icon: Radar },
+      { label: 'My Ads',        to: '/my-ads',               icon: Zap },
+      { label: 'Removed Ads',   to: '/removed-ads',          icon: Trash2 },
       { label: 'Ads Library',   to: '/ads',                  icon: BookImage },
       { label: 'AI Analysis',   to: '/ai-analysis',          icon: Brain },
       { label: 'Hook Library',  to: '/hooks',                icon: Anchor },

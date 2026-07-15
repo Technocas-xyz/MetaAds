@@ -17,13 +17,17 @@ from app.routers import briefs as briefs_router
 from app.routers import campaigns as campaigns_router
 from app.routers import scraper as scraper_router
 from app.routers import insights as insights_router
+from app.routers import my_ads as my_ads_router
+from app.routers import removed_ads as removed_ads_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.services.scheduler_service import start_scheduler, stop_scheduler
+    from app.services.ai_client import get_provider_info
+    info = get_provider_info()
     print(f"[startup] Environment: {settings.ENVIRONMENT}")
-    print(f"[startup] AI provider: Groq ({settings.GROQ_MODEL})")
+    print(f"[startup] AI provider: {info['provider']} ({info['model']})")
     await start_scheduler()
     yield
     await stop_scheduler()
@@ -61,6 +65,8 @@ app.include_router(briefs_router.router, prefix="/api")
 app.include_router(campaigns_router.router, prefix="/api")
 app.include_router(scraper_router.router, prefix="/api")
 app.include_router(insights_router.router, prefix="/api")
+app.include_router(my_ads_router.router, prefix="/api")
+app.include_router(removed_ads_router.router, prefix="/api")
 
 
 @app.get("/")
@@ -76,6 +82,40 @@ async def root():
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "environment": settings.ENVIRONMENT}
+
+
+@app.get("/api/media/{key:path}")
+async def proxy_media(key: str):
+    """
+    Proxy endpoint to serve MinIO objects through the backend.
+    Useful when MinIO isn't directly reachable from the browser.
+    Streams the object with proper content-type.
+    """
+    from fastapi.responses import StreamingResponse
+    from app.core.storage.s3_writer import _get_client, MINIO_BUCKET, _ensure_bucket
+
+    try:
+        _ensure_bucket()
+        client = _get_client()
+        response = client.get_object(MINIO_BUCKET, key)
+        content_type = response.headers.get("Content-Type", "image/jpeg")
+
+        def iterfile():
+            try:
+                for chunk in response.stream(8192):
+                    yield chunk
+            finally:
+                response.close()
+                response.release_conn()
+
+        return StreamingResponse(
+            iterfile(),
+            media_type=content_type,
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        )
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Media not found: {key}")
 
 
 @app.get("/api/search")

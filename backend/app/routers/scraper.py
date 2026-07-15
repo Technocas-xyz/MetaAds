@@ -153,7 +153,8 @@ async def list_scraper_competitors(
 ):
     """List all competitors with scraping stats for the scraper view."""
     stmt = select(Competitor).where(
-        Competitor.status == "Active"
+        Competitor.status == "Active",
+        Competitor.is_own_brand == False,
     ).order_by(Competitor.name.asc())
     competitors = (await db.execute(stmt)).scalars().all()
 
@@ -384,9 +385,31 @@ async def list_recent_runs(
     return [ScrapeRunResponse.model_validate(r) for r in runs]
 
 
+# ─── Schedule control ─────────────────────────────────────────────────────────
+
+@router.get("/schedule/status")
+async def get_schedule_status(current_user: User = Depends(get_current_user)):
+    """Get daily schedule status: whether it ran today, next run, last run summary."""
+    from app.services.scheduler_service import get_schedule_status
+    return get_schedule_status()
+
+
+@router.post("/schedule/toggle")
+async def toggle_schedule(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+):
+    """Enable/disable the daily schedule. Body: {"enabled": true/false}"""
+    from app.services.scheduler_service import set_enabled, is_enabled
+    enabled = payload.get("enabled", True)
+    set_enabled(enabled)
+    return {"enabled": is_enabled()}
+
+
 # ─── Scrape All (batch) ───────────────────────────────────────────────────────
 
 import asyncio as _asyncio
+from app.services.job_controller import scrape_all_job, analyze_all_job, get_competitor_analyze_job
 
 _batch_running = False
 _batch_progress = {"total": 0, "completed": 0, "failed": 0, "current": None}
@@ -399,63 +422,91 @@ async def _run_batch_scrape():
 
     try:
         async with AsyncSessionLocal() as db:
-            stmt = select(Competitor).where(Competitor.status == "Active").order_by(Competitor.name)
+            stmt = select(Competitor).where(
+                Competitor.status == "Active",
+                Competitor.is_own_brand == False,
+            ).order_by(Competitor.name)
             competitors = (await db.execute(stmt)).scalars().all()
-            _batch_progress["total"] = len(competitors)
-            _batch_progress["completed"] = 0
-            _batch_progress["failed"] = 0
+
+        total = len(competitors)
+        _batch_progress = {"total": total, "completed": 0, "failed": 0, "current": None}
+        scrape_all_job.start(total)
 
         for comp in competitors:
+            # Check pause/stop before each competitor
+            if not await scrape_all_job.should_continue():
+                break
+
             _batch_progress["current"] = comp.name
+            scrape_all_job.current = comp.name
             try:
                 async with AsyncSessionLocal() as db:
                     await scrape_competitor(comp.id, db, trigger="batch")
                 _batch_progress["completed"] += 1
+                scrape_all_job.completed += 1
             except Exception as e:
                 _batch_progress["failed"] += 1
+                scrape_all_job.failed += 1
                 import logging
                 logging.getLogger(__name__).error(f"[batch] Failed {comp.name}: {e}")
 
             # Delay between competitors to avoid hammering Meta
             await _asyncio.sleep(8)
 
+        if scrape_all_job.state.value == "running":
+            scrape_all_job.complete()
+
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"[batch] Scrape-all crashed: {e}")
     finally:
         _batch_running = False
         _batch_progress["current"] = None
+        scrape_all_job.current = None
 
 
 @router.post("/scrape-all", status_code=202)
 async def trigger_scrape_all(
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Start scraping ALL competitors sequentially in the background.
-    Returns immediately with 202 Accepted.
-    """
-    global _batch_running
-    if _batch_running:
-        return {
-            "status": "already_running",
-            "progress": _batch_progress,
-        }
+    """Start scraping ALL competitors sequentially in the background."""
+    if scrape_all_job.is_active:
+        return {"status": "already_running", "job": scrape_all_job.to_dict()}
 
-    # Launch background task
+    scrape_all_job.reset()
     _asyncio.create_task(_run_batch_scrape())
 
     return {
         "status": "started",
-        "message": "Batch scrape started for all competitors. Check /api/scraper/scrape-all/status for progress.",
+        "message": "Batch scrape started for all competitors.",
     }
 
 
+@router.post("/scrape-all/pause", status_code=200)
+async def pause_scrape_all(current_user: User = Depends(get_current_user)):
+    scrape_all_job.pause()
+    return {"status": "paused", "job": scrape_all_job.to_dict()}
+
+
+@router.post("/scrape-all/resume", status_code=200)
+async def resume_scrape_all(current_user: User = Depends(get_current_user)):
+    scrape_all_job.resume()
+    return {"status": "resumed", "job": scrape_all_job.to_dict()}
+
+
+@router.post("/scrape-all/stop", status_code=200)
+async def stop_scrape_all(current_user: User = Depends(get_current_user)):
+    scrape_all_job.stop()
+    return {"status": "stopped", "job": scrape_all_job.to_dict()}
+
+
 @router.get("/scrape-all/status")
-async def get_batch_status(
-    current_user: User = Depends(get_current_user),
-):
+async def get_batch_status(current_user: User = Depends(get_current_user)):
     """Check progress of the batch scrape."""
     return {
-        "running": _batch_running,
+        "running": scrape_all_job.is_active,
         "progress": _batch_progress,
+        "job": scrape_all_job.to_dict(),
     }
 
 
@@ -473,66 +524,60 @@ async def _run_batch_analysis():
     log = logging.getLogger(__name__)
 
     try:
-        # Find all ads without analysis
         async with AsyncSessionLocal() as db:
-            # Get IDs of ads that already have analysis
             analyzed_ids_stmt = select(AdAnalysis.ad_id)
-            analyzed_ids = set(
-                (await db.execute(analyzed_ids_stmt)).scalars().all()
-            )
-
-            # Get all ads
+            analyzed_ids = set((await db.execute(analyzed_ids_stmt)).scalars().all())
             all_ads_stmt = select(Ad.id, Ad.primary_text, Ad.hook).order_by(Ad.created_at.desc())
             all_ads = (await db.execute(all_ads_stmt)).all()
 
-        # Filter to unanalyzed ads that have enough text to analyze
         to_analyze = []
+        skipped = 0
         for ad_id, primary_text, hook in all_ads:
             if ad_id in analyzed_ids:
                 continue
-            # Skip ads with no text at all (nothing to analyze)
             if not primary_text and not hook:
-                _analysis_progress["skipped"] += 1
+                skipped += 1
                 continue
             to_analyze.append(ad_id)
 
-        _analysis_progress["total"] = len(to_analyze)
-        _analysis_progress["completed"] = 0
-        _analysis_progress["failed"] = 0
-        _analysis_progress["skipped"] = len(all_ads) - len(to_analyze) - len(analyzed_ids)
+        total = len(to_analyze)
+        _analysis_progress = {"total": total, "completed": 0, "failed": 0, "skipped": skipped}
+        analyze_all_job.start(total)
+        analyze_all_job.skipped = skipped
 
-        log.info(f"[analyze-all] Starting batch analysis: {len(to_analyze)} ads to analyze")
+        log.info(f"[analyze-all] Starting batch analysis: {total} ads to analyze")
 
-        # Process in batches with delays for rate limiting
         BATCH_SIZE = 5
-        DELAY_BETWEEN = 2  # seconds between each analysis (Groq rate limit)
-        DELAY_BETWEEN_BATCHES = 10  # extra pause every BATCH_SIZE
+        DELAY_BETWEEN = 2
+        DELAY_BETWEEN_BATCHES = 10
 
         for i, ad_id in enumerate(to_analyze):
+            # Check pause/stop before each ad
+            if not await analyze_all_job.should_continue():
+                break
+
             try:
                 async with AsyncSessionLocal() as db:
                     await run_analysis(str(ad_id), db)
                 _analysis_progress["completed"] += 1
+                analyze_all_job.completed += 1
 
                 if (i + 1) % 10 == 0:
-                    log.info(
-                        f"[analyze-all] Progress: {_analysis_progress['completed']}/{len(to_analyze)}"
-                    )
+                    log.info(f"[analyze-all] Progress: {analyze_all_job.completed}/{total}")
 
             except Exception as e:
                 _analysis_progress["failed"] += 1
-                if _analysis_progress["failed"] <= 5:
+                analyze_all_job.failed += 1
+                if analyze_all_job.failed <= 5:
                     log.warning(f"[analyze-all] Failed ad {ad_id}: {e}")
 
-            # Rate limiting
             await _asyncio.sleep(DELAY_BETWEEN)
             if (i + 1) % BATCH_SIZE == 0:
                 await _asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
-        log.info(
-            f"[analyze-all] Done: {_analysis_progress['completed']} analyzed, "
-            f"{_analysis_progress['failed']} failed, {_analysis_progress['skipped']} skipped"
-        )
+        if analyze_all_job.state.value == "running":
+            analyze_all_job.complete()
+            log.info(f"[analyze-all] Done: {analyze_all_job.completed} analyzed, {analyze_all_job.failed} failed")
 
     except Exception as e:
         import logging
@@ -545,42 +590,219 @@ async def _run_batch_analysis():
 async def trigger_analyze_all(
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Start AI analysis on ALL unanalyzed ads in background.
-    Returns immediately with 202. Idempotent — skips already-analyzed ads.
-    """
-    global _analysis_running
-    if _analysis_running:
-        return {
-            "status": "already_running",
-            "progress": _analysis_progress,
-        }
+    """Start AI analysis on ALL unanalyzed ads. Idempotent — skips already-analyzed."""
+    if analyze_all_job.is_active:
+        return {"status": "already_running", "job": analyze_all_job.to_dict()}
 
+    # Count pending for cost awareness
+    async with AsyncSessionLocal() as db:
+        total_ads = (await db.execute(select(func.count(Ad.id)))).scalar() or 0
+        total_analyzed = (await db.execute(select(func.count(AdAnalysis.id)))).scalar() or 0
+    pending = total_ads - total_analyzed
+
+    analyze_all_job.reset()
     _asyncio.create_task(_run_batch_analysis())
 
     return {
         "status": "started",
-        "message": "Batch analysis started. Check /api/scraper/analyze-all/status for progress.",
+        "message": f"Batch analysis started for ~{pending} pending ads.",
+        "pending_count": pending,
     }
 
 
+@router.post("/analyze-all/pause", status_code=200)
+async def pause_analyze_all(current_user: User = Depends(get_current_user)):
+    analyze_all_job.pause()
+    return {"status": "paused", "job": analyze_all_job.to_dict()}
+
+
+@router.post("/analyze-all/resume", status_code=200)
+async def resume_analyze_all(current_user: User = Depends(get_current_user)):
+    analyze_all_job.resume()
+    return {"status": "resumed", "job": analyze_all_job.to_dict()}
+
+
+@router.post("/analyze-all/stop", status_code=200)
+async def stop_analyze_all(current_user: User = Depends(get_current_user)):
+    analyze_all_job.stop()
+    return {"status": "stopped", "job": analyze_all_job.to_dict()}
+
+
 @router.get("/analyze-all/status")
-async def get_analysis_status(
-    current_user: User = Depends(get_current_user),
-):
+async def get_analysis_status(current_user: User = Depends(get_current_user)):
     """Check progress of the batch analysis."""
-    # Also get totals for context
     async with AsyncSessionLocal() as db:
         total_ads = (await db.execute(select(func.count(Ad.id)))).scalar() or 0
         total_analyzed = (await db.execute(select(func.count(AdAnalysis.id)))).scalar() or 0
 
     return {
-        "running": _analysis_running,
+        "running": analyze_all_job.is_active,
         "progress": _analysis_progress,
+        "job": analyze_all_job.to_dict(),
         "totals": {
             "total_ads": total_ads,
             "total_analyzed": total_analyzed,
             "remaining": total_ads - total_analyzed,
+        },
+    }
+
+
+# ─── Per-competitor Analyze (batch AI analysis for one competitor) ─────────────
+
+_comp_analysis_running: dict = {}  # competitor_id -> bool
+_comp_analysis_progress: dict = {}  # competitor_id -> {total, completed, failed, current}
+
+
+async def _run_competitor_analysis(competitor_id: UUID, comp_name: str):
+    """Analyze all unanalyzed ads for a single competitor in background."""
+    global _comp_analysis_running, _comp_analysis_progress
+    cid = str(competitor_id)
+    _comp_analysis_running[cid] = True
+    import logging
+    log = logging.getLogger(__name__)
+
+    try:
+        async with AsyncSessionLocal() as db:
+            # Get ads for this competitor that don't have analysis
+            analyzed_ids_stmt = (
+                select(AdAnalysis.ad_id)
+                .join(Ad, Ad.id == AdAnalysis.ad_id)
+                .where(Ad.competitor_id == competitor_id)
+            )
+            analyzed_ids = set((await db.execute(analyzed_ids_stmt)).scalars().all())
+
+            all_ads_stmt = (
+                select(Ad.id, Ad.primary_text, Ad.hook)
+                .where(Ad.competitor_id == competitor_id)
+                .order_by(Ad.created_at.desc())
+            )
+            all_ads = (await db.execute(all_ads_stmt)).all()
+
+        # Filter to unanalyzed with text
+        to_analyze = []
+        for ad_id, primary_text, hook in all_ads:
+            if ad_id in analyzed_ids:
+                continue
+            if not primary_text and not hook:
+                continue
+            to_analyze.append(ad_id)
+
+        _comp_analysis_progress[cid] = {
+            "total": len(to_analyze),
+            "completed": 0,
+            "failed": 0,
+            "current": comp_name,
+        }
+
+        log.info(f"[analyze-comp] Starting for {comp_name}: {len(to_analyze)} ads")
+
+        DELAY_BETWEEN = 2
+        BATCH_SIZE = 5
+        DELAY_BETWEEN_BATCHES = 10
+
+        for i, ad_id in enumerate(to_analyze):
+            try:
+                async with AsyncSessionLocal() as db:
+                    await run_analysis(str(ad_id), db)
+                _comp_analysis_progress[cid]["completed"] += 1
+            except Exception as e:
+                _comp_analysis_progress[cid]["failed"] += 1
+                if _comp_analysis_progress[cid]["failed"] <= 3:
+                    log.warning(f"[analyze-comp] Failed ad {ad_id}: {e}")
+
+            await _asyncio.sleep(DELAY_BETWEEN)
+            if (i + 1) % BATCH_SIZE == 0:
+                await _asyncio.sleep(DELAY_BETWEEN_BATCHES)
+
+        log.info(
+            f"[analyze-comp] Done for {comp_name}: "
+            f"{_comp_analysis_progress[cid]['completed']} analyzed, "
+            f"{_comp_analysis_progress[cid]['failed']} failed"
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"[analyze-comp] Crashed for {comp_name}: {e}")
+    finally:
+        _comp_analysis_running[cid] = False
+
+
+@router.post("/competitors/{competitor_id}/analyze", status_code=202)
+async def trigger_competitor_analyze(
+    competitor_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Start AI analysis on all unanalyzed ads for this competitor.
+    Returns 202 immediately; analysis runs in background.
+    Idempotent — skips already-analyzed ads.
+    """
+    competitor = await db.get(Competitor, competitor_id)
+    if not competitor:
+        raise HTTPException(status_code=404, detail="Competitor not found")
+
+    cid = str(competitor_id)
+    if _comp_analysis_running.get(cid):
+        return {
+            "status": "already_running",
+            "progress": _comp_analysis_progress.get(cid, {}),
+        }
+
+    # Check how many need analysis
+    analyzed_count = (await db.execute(
+        select(func.count(AdAnalysis.ad_id))
+        .join(Ad, Ad.id == AdAnalysis.ad_id)
+        .where(Ad.competitor_id == competitor_id)
+    )).scalar() or 0
+
+    total_ads = (await db.execute(
+        select(func.count(Ad.id)).where(Ad.competitor_id == competitor_id)
+    )).scalar() or 0
+
+    pending = total_ads - analyzed_count
+    if pending <= 0:
+        return {
+            "status": "all_analyzed",
+            "message": f"All {total_ads} ads are already analyzed.",
+            "progress": {"total": 0, "completed": 0, "failed": 0},
+        }
+
+    _asyncio.create_task(_run_competitor_analysis(competitor_id, competitor.name))
+
+    return {
+        "status": "started",
+        "message": f"Analysis started for {pending} pending ads of {competitor.name}.",
+        "pending": pending,
+    }
+
+
+@router.get("/competitors/{competitor_id}/analyze-status")
+async def get_competitor_analyze_status(
+    competitor_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Check progress of the per-competitor analysis."""
+    cid = str(competitor_id)
+
+    # Get current counts
+    analyzed_count = (await db.execute(
+        select(func.count(AdAnalysis.ad_id))
+        .join(Ad, Ad.id == AdAnalysis.ad_id)
+        .where(Ad.competitor_id == competitor_id)
+    )).scalar() or 0
+
+    total_ads = (await db.execute(
+        select(func.count(Ad.id)).where(Ad.competitor_id == competitor_id)
+    )).scalar() or 0
+
+    return {
+        "running": _comp_analysis_running.get(cid, False),
+        "progress": _comp_analysis_progress.get(cid, {"total": 0, "completed": 0, "failed": 0}),
+        "totals": {
+            "total_ads": total_ads,
+            "total_analyzed": analyzed_count,
+            "remaining": total_ads - analyzed_count,
         },
     }
 

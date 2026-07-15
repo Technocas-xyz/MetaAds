@@ -10,7 +10,6 @@ import json
 import re
 from datetime import datetime, timezone
 
-from groq import AsyncGroq
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +17,7 @@ from app.config import settings
 from app.models.ad import Ad
 from app.models.ad_analysis import AdAnalysis
 from app.models.review_queue import ReviewQueue
+from app.services.ai_client import chat_completion, get_model_name
 
 
 # ---------- Prompts ----------
@@ -95,21 +95,19 @@ async def run_analysis(ad_id: str, db: AsyncSession) -> AdAnalysis:
         landing_url=ad.landing_url or "N/A",
     )
 
-    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-    response = await client.chat.completions.create(
-        model=settings.GROQ_MODEL,
+    client = None  # Using centralized ai_client
+    raw_output = await chat_completion(
         messages=[
             {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.3,
         max_tokens=1024,
-        response_format={"type": "json_object"},
+        json_mode=True,
     )
 
-    raw_output = response.choices[0].message.content
     if raw_output is None:
-        raise ValueError("Groq returned empty response")
+        raise ValueError("AI provider returned empty response")
 
     try:
         data = _extract_json(raw_output)
@@ -145,7 +143,7 @@ async def run_analysis(ad_id: str, db: AsyncSession) -> AdAnalysis:
     analysis.summary = data.get("summary")
     analysis.suggested_angle = data.get("suggested_angle")
     analysis.suggested_hook = data.get("suggested_hook")
-    analysis.model_version = settings.GROQ_MODEL
+    analysis.model_version = get_model_name()
     analysis.analyzed_at = datetime.now(timezone.utc)
 
     # Update ad status; queue for review if low confidence

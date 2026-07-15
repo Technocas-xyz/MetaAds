@@ -50,6 +50,7 @@ MarkupSafe==3.0.3
 mdurl==0.1.2
 minio==7.2.15
 numpy==2.4.4
+openai==1.82.0
 packaging==26.2
 passlib==1.7.4
 playwright==1.49.1

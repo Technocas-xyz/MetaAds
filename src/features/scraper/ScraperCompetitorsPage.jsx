@@ -1,12 +1,15 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, ExternalLink, Play, Clock, TrendingUp, Users, Zap, PlayCircle, Plus, Brain } from 'lucide-react'
+import { Search, ExternalLink, Play, Clock, TrendingUp, Users, Zap, PlayCircle, Plus, Brain, Loader2 } from 'lucide-react'
 import PageHeader from '../../components/ui/PageHeader'
 import KPICard from '../../components/ui/KPICard'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
+import ProgressBar from '../../components/ui/ProgressBar'
 import AddCompetitorModal from '../competitors/components/AddCompetitorModal'
+import ScheduleStatusBar from './components/ScheduleStatusBar'
 import { useScraperCompetitors, useTriggerScrape, useTriggerScrapeAll, useTriggerAnalyzeAll } from '../../hooks/queries/useScraper'
+import { getScrapeAllStatus, getAnalyzeAllStatus } from '../../api/scraper'
 import toast from 'react-hot-toast'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -16,10 +19,94 @@ export default function ScraperCompetitorsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const navigate = useNavigate()
 
-  const { data: competitors = [], isLoading } = useScraperCompetitors()
+  // Progress state for batch operations
+  const [scrapeAllRunning, setScrapeAllRunning] = useState(false)
+  const [scrapeAllProgress, setScrapeAllProgress] = useState(null)
+  const [analyzeAllRunning, setAnalyzeAllRunning] = useState(false)
+  const [analyzeAllProgress, setAnalyzeAllProgress] = useState(null)
+
+  const { data: competitors = [], isLoading, refetch } = useScraperCompetitors()
   const triggerMutation = useTriggerScrape()
   const scrapeAllMutation = useTriggerScrapeAll()
   const analyzeAllMutation = useTriggerAnalyzeAll()
+
+  // ─── Polling for Scrape All progress ────────────────────────────────────
+  const pollScrapeAll = useCallback(() => {
+    const interval = setInterval(async () => {
+      try {
+        const status = await getScrapeAllStatus()
+        if (status.running) {
+          setScrapeAllRunning(true)
+          setScrapeAllProgress(status.progress)
+        } else {
+          setScrapeAllRunning(false)
+          if (scrapeAllProgress && scrapeAllProgress.completed > 0) {
+            toast.success(`Scrape complete: ${status.progress.completed} competitors done${status.progress.failed > 0 ? `, ${status.progress.failed} failed` : ''}`)
+            refetch()
+          }
+          setScrapeAllProgress(status.progress)
+          clearInterval(interval)
+        }
+      } catch {
+        clearInterval(interval)
+        setScrapeAllRunning(false)
+      }
+    }, 4000)
+    return interval
+  }, [scrapeAllProgress, refetch])
+
+  // ─── Polling for Analyze All progress ───────────────────────────────────
+  const pollAnalyzeAll = useCallback(() => {
+    const interval = setInterval(async () => {
+      try {
+        const status = await getAnalyzeAllStatus()
+        if (status.running) {
+          setAnalyzeAllRunning(true)
+          setAnalyzeAllProgress(status.progress)
+        } else {
+          setAnalyzeAllRunning(false)
+          if (analyzeAllProgress && analyzeAllProgress.completed > 0) {
+            toast.success(`Analysis complete: ${status.progress.completed} ads analyzed${status.progress.failed > 0 ? `, ${status.progress.failed} failed` : ''}`)
+            refetch()
+          }
+          setAnalyzeAllProgress(status.progress)
+          clearInterval(interval)
+        }
+      } catch {
+        clearInterval(interval)
+        setAnalyzeAllRunning(false)
+      }
+    }, 4000)
+    return interval
+  }, [analyzeAllProgress, refetch])
+
+  // ─── Check status on mount (resume if job was running) ──────────────────
+  useEffect(() => {
+    let scrapeInterval, analyzeInterval
+    const checkInitial = async () => {
+      try {
+        const scrapeStatus = await getScrapeAllStatus()
+        if (scrapeStatus.running) {
+          setScrapeAllRunning(true)
+          setScrapeAllProgress(scrapeStatus.progress)
+          scrapeInterval = pollScrapeAll()
+        }
+      } catch {}
+      try {
+        const analyzeStatus = await getAnalyzeAllStatus()
+        if (analyzeStatus.running) {
+          setAnalyzeAllRunning(true)
+          setAnalyzeAllProgress(analyzeStatus.progress)
+          analyzeInterval = pollAnalyzeAll()
+        }
+      } catch {}
+    }
+    checkInitial()
+    return () => {
+      if (scrapeInterval) clearInterval(scrapeInterval)
+      if (analyzeInterval) clearInterval(analyzeInterval)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Computed KPIs
   const kpis = useMemo(() => {
@@ -79,7 +166,7 @@ export default function ScraperCompetitorsPage() {
             <Button
               variant="outline"
               size="md"
-              icon={Brain}
+              icon={analyzeAllRunning ? Loader2 : Brain}
               onClick={() => {
                 analyzeAllMutation.mutate(undefined, {
                   onSuccess: (data) => {
@@ -87,34 +174,42 @@ export default function ScraperCompetitorsPage() {
                       toast('Analysis already running', { icon: '⏳' })
                     } else {
                       toast.success('Batch analysis started!')
+                      setAnalyzeAllRunning(true)
+                      setAnalyzeAllProgress({ total: 0, completed: 0, failed: 0 })
+                      pollAnalyzeAll()
                     }
                   },
                   onError: () => toast.error('Failed to start analysis'),
                 })
               }}
-              disabled={analyzeAllMutation.isPending}
+              disabled={analyzeAllMutation.isPending || analyzeAllRunning}
+              className={analyzeAllRunning ? '[&_svg]:animate-spin' : ''}
             >
-              Analyze All
+              {analyzeAllRunning ? 'Analyzing...' : 'Analyze All'}
             </Button>
             <Button
               variant="primary"
               size="md"
-              icon={PlayCircle}
+              icon={scrapeAllRunning ? Loader2 : PlayCircle}
               onClick={() => {
                 scrapeAllMutation.mutate(undefined, {
                   onSuccess: (data) => {
                     if (data.status === 'already_running') {
                       toast('Batch already running — check progress', { icon: '⏳' })
                     } else {
-                      toast.success('Batch scrape started! Competitors will be scraped one by one.')
+                      toast.success('Batch scrape started!')
+                      setScrapeAllRunning(true)
+                      setScrapeAllProgress({ total: 0, completed: 0, failed: 0 })
+                      pollScrapeAll()
                     }
                   },
                   onError: () => toast.error('Failed to start batch scrape'),
                 })
               }}
-              disabled={scrapeAllMutation.isPending}
+              disabled={scrapeAllMutation.isPending || scrapeAllRunning}
+              className={scrapeAllRunning ? '[&_svg]:animate-spin' : ''}
             >
-              {scrapeAllMutation.isPending ? 'Starting...' : 'Scrape All'}
+              {scrapeAllRunning ? 'Scraping...' : 'Scrape All'}
             </Button>
           </div>
         }
@@ -151,6 +246,38 @@ export default function ScraperCompetitorsPage() {
           iconColor="text-purple-600"
         />
       </div>
+
+      {/* Schedule status bar */}
+      <ScheduleStatusBar />
+
+      {/* Progress bars for batch operations */}
+      {scrapeAllRunning && scrapeAllProgress && (
+        <div className="rounded-card border border-blue-200 bg-blue-50/30 p-4 shadow-card">
+          <div className="flex items-center gap-2 mb-2">
+            <Loader2 size={14} className="animate-spin text-blue-600" />
+            <span className="text-xs font-semibold text-blue-700">Scraping all competitors...</span>
+          </div>
+          <ProgressBar
+            total={scrapeAllProgress.total}
+            completed={scrapeAllProgress.completed}
+            failed={scrapeAllProgress.failed}
+            current={scrapeAllProgress.current}
+          />
+        </div>
+      )}
+      {analyzeAllRunning && analyzeAllProgress && (
+        <div className="rounded-card border border-purple-200 bg-purple-50/30 p-4 shadow-card">
+          <div className="flex items-center gap-2 mb-2">
+            <Loader2 size={14} className="animate-spin text-purple-600" />
+            <span className="text-xs font-semibold text-purple-700">Analyzing all pending ads...</span>
+          </div>
+          <ProgressBar
+            total={analyzeAllProgress.total}
+            completed={analyzeAllProgress.completed}
+            failed={analyzeAllProgress.failed}
+          />
+        </div>
+      )}
 
       {/* Search + Sort bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
