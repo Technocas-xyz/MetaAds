@@ -190,6 +190,7 @@ async def list_ads(
     angle: Optional[str] = Query(None),
     offer: Optional[str] = Query(None),
     confidence: Optional[str] = Query(None),
+    format: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     sort: str = Query("-captured_at"),
     db: AsyncSession = Depends(get_db),
@@ -244,6 +245,13 @@ async def list_ads(
         stmt = stmt.where(
             Ad.headline.ilike(like_pattern) | Ad.primary_text.ilike(like_pattern)
         )
+
+    # Format filter (video/image)
+    if format:
+        if format.lower() == "video":
+            stmt = stmt.where(Ad.is_video == True)
+        elif format.lower() == "image":
+            stmt = stmt.where(Ad.is_video == False)
 
     # Count total before pagination
     count_stmt = select(func.count()).select_from(stmt.subquery())

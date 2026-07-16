@@ -36,7 +36,7 @@ export default function AdsFilterBar({
   competitors = [],
 }) {
   const hasFilters = !!filters.competitor || !!filters.hook_type ||
-    !!filters.angle || !!filters.offer || !!filters.confidence
+    !!filters.angle || !!filters.offer || !!filters.confidence || !!filters.format
 
   return (
     <div className="sticky top-0 z-10 -mx-6 px-6 lg:-mx-8 lg:px-8">
@@ -112,6 +112,16 @@ export default function AdsFilterBar({
           placeholder="Confidence"
         >
           {CONFIDENCE.map((c) => <option key={c} value={c}>{c}</option>)}
+        </NativeSelect>
+
+        {/* Format */}
+        <NativeSelect
+          value={filters.format || ''}
+          onChange={(v) => onFilterChange('format', v)}
+          placeholder="Format"
+        >
+          <option value="video">Video</option>
+          <option value="image">Image</option>
         </NativeSelect>
 
         {/* Right side */}

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, time
 from typing import Optional, List
-from sqlalchemy import String, Text, Integer, Boolean, Time, DateTime, ForeignKey, ARRAY
+from sqlalchemy import String, Text, Integer, Boolean, Float, Time, DateTime, ForeignKey, ARRAY
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import TimestampedBase
@@ -19,6 +19,9 @@ class Competitor(TimestampedBase):
     region: Mapped[str] = mapped_column(String(50), default="Global", nullable=False)
     tier: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
     is_own_brand: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Spend estimation (optional per-competitor override, nullable = use global default)
+    daily_spend_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     # Scraping fields
     page_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)

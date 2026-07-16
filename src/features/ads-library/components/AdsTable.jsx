@@ -7,6 +7,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import HookTypeBadge from '../../../components/ui/HookTypeBadge'
 import ConfidenceBadge from '../../../components/ui/ConfidenceBadge'
 import Badge from '../../../components/ui/Badge'
+import EstSpend from '../../../components/ui/EstSpend'
 import { cn } from '../../../lib/utils'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -199,6 +200,19 @@ function TableRow({ ad, selected, onSelect, onPreview, expandedId, onToggleExpan
           }
         </td>
 
+        {/* Format */}
+        <td className="px-4 py-4">
+          {ad.is_video ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-blue-200">
+              <Play size={9} className="fill-blue-600" /> Video
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-200">
+              Image
+            </span>
+          )}
+        </td>
+
         {/* Confidence */}
         <td className="px-4 py-4">
           <ConfidenceBadge score={ad.confidence_score} />
@@ -213,6 +227,7 @@ function TableRow({ ad, selected, onSelect, onPreview, expandedId, onToggleExpan
         <td className="hidden px-4 py-4 lg:table-cell">
           <p className="text-sm font-medium text-text-primary">{ad.running_since_days}d</p>
           <p className="text-xs text-text-tertiary">{ad.running_since_date}</p>
+          <EstSpend daysRunning={ad.running_since_days} compact />
         </td>
 
         {/* Captured At */}
@@ -304,6 +319,15 @@ function MobileCard({ ad, selected, onSelect, onPreview }) {
             <HookTypeBadge type={ad.hook_type} />
             <ConfidenceBadge score={ad.confidence_score} />
             {ad.offer_type && <Badge color="indigo">{ad.offer_type}</Badge>}
+            {ad.is_video ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-blue-200">
+                <Play size={9} className="fill-blue-600" /> Video
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-200">
+                Image
+              </span>
+            )}
           </div>
 
           <div className="mt-2 flex items-center gap-3 text-[10px] text-text-tertiary">
@@ -397,6 +421,7 @@ const COLUMNS = [
   { label: 'Hook Type',      cls: '' },
   { label: 'Angle',          cls: '' },
   { label: 'Offer',          cls: '' },
+  { label: 'Format',         cls: '' },
   { label: 'Confidence',     cls: '' },
   { label: 'Variants',       cls: 'hidden lg:table-cell' },
   { label: 'Running Since',  cls: 'hidden lg:table-cell' },

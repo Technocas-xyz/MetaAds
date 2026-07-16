@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { ExternalLink, Play, Image, Sparkles, Globe } from 'lucide-react'
+import { ExternalLink, Play, Image, Sparkles, Globe, DollarSign } from 'lucide-react'
 import Badge from '../../../components/ui/Badge'
+import EstSpend from '../../../components/ui/EstSpend'
 
 /**
  * Get the best available image URL for an ad, with fallback chain.
@@ -123,7 +124,10 @@ export default function AdCard({ ad, onAnalyze }) {
           {ad.ad_library_id && (
             <p className="truncate text-[9px] text-text-secondary">ID: {ad.ad_library_id}</p>
           )}
-          <p className="text-[9px] text-text-secondary">{ad.start_date}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[9px] text-text-secondary">{ad.start_date}</p>
+            {ad.days_running > 0 && <EstSpend daysRunning={ad.days_running} compact />}
+          </div>
         </div>
         <div className="flex items-center gap-0.5">
           {!hasAnalysis && (

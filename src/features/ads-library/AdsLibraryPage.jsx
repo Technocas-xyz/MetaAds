@@ -25,6 +25,7 @@ function paramsToFilters(sp) {
     angle:      sp.get('angle')      ?? '',
     offer:      sp.get('offer')      ?? '',
     confidence: sp.get('confidence') ?? '',
+    format:     sp.get('format')     ?? '',
     dateRange:  sp.get('dateRange')  ?? '',
     search:     sp.get('search')     ?? '',
   }
@@ -87,7 +88,7 @@ export default function AdsLibraryPage() {
       const next = new URLSearchParams()
       // preserve only non-filter params
       for (const [k, v] of prev) {
-        if (!['competitor', 'hook_type', 'angle', 'offer', 'confidence', 'dateRange', 'search', 'page'].includes(k)) {
+        if (!['competitor', 'hook_type', 'angle', 'offer', 'confidence', 'format', 'dateRange', 'search', 'page'].includes(k)) {
           next.set(k, v)
         }
       }
