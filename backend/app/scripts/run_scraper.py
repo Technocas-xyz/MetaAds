@@ -356,6 +356,7 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
     Main scrape function. time_budget is max seconds to spend (default 1100s = ~18min).
     If output_file is provided, writes partial results there periodically.
     """
+    import os
     from playwright.sync_api import sync_playwright
 
     url = build_url(comp)
@@ -363,7 +364,32 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
     results = []
     scrape_start = time.time()
 
+    # ── Session persistence ───────────────────────────────────────────────
+    # Load saved anonymous session (consent cookies, locale prefs) if available.
+    # This avoids starting fresh every time, which causes Meta to throttle/limit results.
+    storage_state_path = os.getenv("META_STORAGE_STATE_PATH", "")
+    storage_state = None
+    loaded_session = False
+
+    if storage_state_path:
+        state_file = Path(storage_state_path)
+        if state_file.exists():
+            try:
+                with open(state_file, 'r', encoding='utf-8') as f:
+                    storage_state = json.load(f)
+                # Validate it's a proper storage state (has cookies key)
+                if isinstance(storage_state, dict) and "cookies" in storage_state:
+                    loaded_session = True
+                    logger.info(f"Loaded session state ({len(storage_state.get('cookies', []))} cookies)")
+                else:
+                    logger.warning("Session state file invalid (no cookies key), starting fresh")
+                    storage_state = None
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Could not load session state ({e}), starting fresh")
+                storage_state = None
+
     logger.info(f"Navigating to: {url}")
+    logger.info(f"Session: {'loaded from file' if loaded_session else 'fresh anonymous'}")
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
@@ -374,15 +400,21 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                 "--disable-blink-features=AutomationControlled",
             ],
         )
-        context = browser.new_context(
-            viewport={"width": 1920, "height": 1080},
-            user_agent=(
+
+        context_kwargs = {
+            "viewport": {"width": 1920, "height": 1080},
+            "user_agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/126.0.0.0 Safari/537.36"
             ),
-            locale="en-US",
-        )
+            "locale": "en-US",
+            "timezone_id": "America/New_York",
+        }
+        if storage_state:
+            context_kwargs["storage_state"] = storage_state
+
+        context = browser.new_context(**context_kwargs)
         page = context.new_page()
 
         try:
@@ -392,17 +424,44 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
 
         time.sleep(5)
 
-        # Dismiss popups
-        for sel in [
+        # ── Dismiss consent/cookie popups (more robust) ───────────────────
+        consent_dismissed = False
+        consent_selectors = [
             "button:has-text('Allow all cookies')",
+            "button:has-text('Allow All Cookies')",
+            "button:has-text('Accept All')",
+            "button:has-text('Accept all')",
             "button:has-text('Decline optional cookies')",
+            "button:has-text('Only allow essential cookies')",
+            "[data-cookiebanner='accept_button']",
+            "[data-testid='cookie-policy-manage-dialog-accept-button']",
             "[aria-label='Close']",
-        ]:
+        ]
+        for sel in consent_selectors:
             try:
-                page.click(sel, timeout=2000)
-                time.sleep(1)
+                btn = page.query_selector(sel)
+                if btn and btn.is_visible():
+                    btn.click()
+                    consent_dismissed = True
+                    logger.info(f"Dismissed consent/popup: {sel}")
+                    time.sleep(2)
+                    break
             except Exception:
                 continue
+
+        # Check for challenge/login/error pages
+        page_content = ""
+        try:
+            page_content = page.inner_text("body")[:500].lower()
+        except Exception:
+            pass
+
+        is_blocked = any(x in page_content for x in [
+            "you must log in", "please log in", "checkpoint",
+            "confirm your identity", "something went wrong",
+        ])
+        if is_blocked:
+            logger.warning("Meta is showing a login/checkpoint/error page — session may be blocked")
 
         # ── Read reported total from page ─────────────────────────────────
         reported_total = 0
@@ -501,15 +560,14 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
             except Exception:
                 pass
             time.sleep(8)
-            # Dismiss popups again
-            for sel in [
-                "button:has-text('Allow all cookies')",
-                "button:has-text('Decline optional cookies')",
-                "[aria-label='Close']",
-            ]:
+            # Dismiss consent/popups again
+            for sel in consent_selectors:
                 try:
-                    page.click(sel, timeout=2000)
-                    time.sleep(1)
+                    btn = page.query_selector(sel)
+                    if btn and btn.is_visible():
+                        btn.click()
+                        time.sleep(2)
+                        break
                 except Exception:
                     continue
 
@@ -837,6 +895,36 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                 )
             else:
                 logger.info(f"  Creative diversity: {distinct_urls} distinct / {len(media_urls)} total")
+
+        # ── Save anonymous session state ─────────────────────────────────
+        # Save when the SESSION CONTEXT is valid (not blocked/challenged),
+        # regardless of ad count. Session validity ≠ scrape completeness.
+        # A valid session can still produce partial results due to scroll limits.
+        #
+        # Do NOT save if:
+        # - the page was blocked/challenged/login-gated
+        # - consent was never resolved (page may not have loaded fully)
+        # - storage_state_path is not configured
+        session_is_saveable = (
+            storage_state_path
+            and not is_blocked
+            and not (consent_dismissed is False and reported_total == 0)
+        )
+        if session_is_saveable:
+            try:
+                state_file = Path(storage_state_path)
+                state_file.parent.mkdir(parents=True, exist_ok=True)
+                saved_state = context.storage_state()
+                # Write atomically (to temp then rename)
+                tmp_path = state_file.with_suffix('.tmp')
+                with open(tmp_path, 'w', encoding='utf-8') as f:
+                    json.dump(saved_state, f, ensure_ascii=False)
+                tmp_path.replace(state_file)
+                logger.info(f"Saved session state ({len(saved_state.get('cookies', []))} cookies)")
+            except Exception as e:
+                logger.debug(f"Could not save session state: {e}")
+        elif storage_state_path and is_blocked:
+            logger.warning("Session NOT saved — page was blocked/challenged")
 
         context.close()
         browser.close()

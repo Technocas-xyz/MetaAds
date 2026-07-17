@@ -179,7 +179,7 @@ export default function AdsLibraryPage() {
     URL.revokeObjectURL(url)
   }
 
-  const competitors = competitorsData?.data ?? []
+  const competitors = Array.isArray(competitorsData) ? competitorsData : (competitorsData?.data ?? [])
 
   return (
     <div className="space-y-6">
