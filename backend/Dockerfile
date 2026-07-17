@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Chromium browser + all system libraries for Playwright
-# Must run AFTER pip install (playwright package needed) and BEFORE USER switch
+# Must run AFTER pip install because the playwright package is required
 RUN playwright install --with-deps chromium
 
 # Copy application code

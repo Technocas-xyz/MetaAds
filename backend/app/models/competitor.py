@@ -19,6 +19,7 @@ class Competitor(TimestampedBase):
     region: Mapped[str] = mapped_column(String(50), default="Global", nullable=False)
     tier: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
     is_own_brand: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    daily_spend_rate: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # Spend estimation (optional per-competitor override, nullable = use global default)
     daily_spend_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)

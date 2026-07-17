@@ -3,7 +3,7 @@ Creative Briefs endpoints.
 
 GET    /api/briefs           — list all briefs (plain array)
 GET    /api/briefs/{id}      — single brief detail
-POST   /api/briefs/generate  — Groq-powered brief generation
+POST   /api/briefs/generate  — Grok-powered brief generation
 DELETE /api/briefs/{id}      — hard delete
 """
 
@@ -81,15 +81,15 @@ async def generate_brief(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Generate a creative brief using Groq AI.
+    Generate a creative brief using Grok AI.
 
     Pulls top 8 highest-confidence competitor ads as context,
-    calls Groq with actual ad copy + classifications,
+    calls Grok with actual ad copy + classifications,
     saves and returns the generated brief (status='active').
 
     Error cases:
     - 422: any competitor_id in the list does not exist in DB
-    - 502: Groq returned invalid/empty JSON
+    - 502: Grok returned invalid/empty JSON
     """
     try:
         brief, data_quality = await brief_service.generate_brief(
@@ -108,7 +108,7 @@ async def generate_brief(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=msg,
             )
-        # Groq parse errors → 502
+        # Grok parse errors → 502
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=msg,

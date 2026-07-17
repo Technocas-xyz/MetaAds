@@ -1,12 +1,12 @@
 """
 Brief generation service — pulls competitor ad intelligence from DB,
-builds a rich Groq prompt with actual ad copy, saves the result.
+builds a rich Grok prompt with actual ad copy, saves the result.
 
 Flow:
   1. Validate competitor_ids (if provided)
   2. Pull top 8 ads by confidence DESC (filtered or all)
   3. Build prompt with actual headline + copy + classifications
-  4. Call Groq (json_object mode, async)
+  4. Call Grok (json_object mode, async)
   5. Parse JSON — raise ValueError on failure
   6. Save Brief row (status="active")
   7. Return (Brief, data_quality)
@@ -105,7 +105,7 @@ Rules:
 # ── JSON extraction ───────────────────────────────────────────────────────────
 
 def _extract_json(raw: str) -> dict:
-    """Extract JSON from Groq response. Tolerant of stray markdown fences."""
+    """Extract JSON from Grok response. Tolerant of stray markdown fences."""
     cleaned = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.MULTILINE)
     cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.MULTILINE)
     start = cleaned.find("{")
@@ -126,14 +126,14 @@ async def generate_brief(
     db: AsyncSession,
 ) -> tuple[Brief, str]:
     """
-    Generate and save a creative brief using Groq.
+    Generate and save a creative brief using Grok.
 
     Returns:
         (Brief ORM object, data_quality)
         data_quality: "full" | "limited"
 
     Raises:
-        ValueError: invalid competitor_ids or Groq JSON parse failure
+        ValueError: invalid competitor_ids or Grok JSON parse failure
     """
 
     # ── 1. Validate competitor_ids ────────────────────────────────────────────
@@ -207,7 +207,7 @@ async def generate_brief(
 
     # ── 6. Save Brief ─────────────────────────────────────────────────────────
     key_messages = data.get("key_messages", [])
-    # Ensure it's a list of strings (Groq occasionally returns a single string)
+    # Ensure it's a list of strings (models occasionally return a single string)
     if isinstance(key_messages, str):
         key_messages = [key_messages]
     key_messages = [str(m) for m in key_messages]

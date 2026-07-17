@@ -21,3 +21,4 @@ class WorkspaceSettings(TimestampedBase):
     default_daily_spend_rate: Mapped[float] = mapped_column(Float, default=20.0, nullable=False)
     fb_ads_api_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     tiktok_ads_api_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    default_daily_spend_rate: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
