@@ -1,5 +1,5 @@
 """
-AI Analysis Service — uses Groq to classify ad copy.
+AI Analysis Service — uses xAI Grok to classify ad copy.
 
 Input: an ad's headline + primary_text + cta + landing_url
 Output: structured AdAnalysis with hook/angle/offer + confidence scores
@@ -81,7 +81,7 @@ def _extract_json(raw: str) -> dict:
 
 async def run_analysis(ad_id: str, db: AsyncSession) -> AdAnalysis:
     """
-    Analyze a single ad with Groq. Saves AdAnalysis row.
+    Analyze a single ad with Grok. Saves AdAnalysis row.
     Returns the analysis or raises an exception on failure.
     """
     ad = await db.get(Ad, ad_id)
@@ -95,7 +95,6 @@ async def run_analysis(ad_id: str, db: AsyncSession) -> AdAnalysis:
         landing_url=ad.landing_url or "N/A",
     )
 
-    client = None  # Using centralized ai_client
     raw_output = await chat_completion(
         messages=[
             {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
@@ -108,7 +107,6 @@ async def run_analysis(ad_id: str, db: AsyncSession) -> AdAnalysis:
 
     if raw_output is None:
         raise ValueError("AI provider returned empty response")
-
     try:
         data = _extract_json(raw_output)
     except (json.JSONDecodeError, ValueError) as e:

@@ -1,5 +1,5 @@
 """
-Analysis endpoints — trigger Groq analysis on stored ads.
+Analysis endpoints — trigger Grok analysis on stored ads.
 """
 
 from typing import List, Optional
@@ -50,7 +50,7 @@ async def analyze_ad(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Run Groq analysis on a single ad. Synchronous — waits for completion."""
+    """Run Grok analysis on a single ad. Synchronous — waits for completion."""
     try:
         analysis = await analysis_service.run_analysis(str(ad_id), db)
         return AnalyzeResponse(

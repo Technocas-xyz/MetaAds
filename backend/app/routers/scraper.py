@@ -548,8 +548,8 @@ async def _run_batch_analysis():
         log.info(f"[analyze-all] Starting batch analysis: {total} ads to analyze")
 
         BATCH_SIZE = 5
-        DELAY_BETWEEN = 2
-        DELAY_BETWEEN_BATCHES = 10
+        DELAY_BETWEEN = 2  # seconds between each analysis (AI rate limit)
+        DELAY_BETWEEN_BATCHES = 10  # extra pause every BATCH_SIZE
 
         for i, ad_id in enumerate(to_analyze):
             # Check pause/stop before each ad

@@ -70,6 +70,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://ads_user:ads_password@postgres:5432/ads_supervisor
       DATABASE_SYNC_URL: postgresql://ads_user:ads_password@postgres:5432/ads_supervisor
+      SSO_SHARED_SECRET: ${SSO_SHARED_SECRET:-}
     # Chromium needs more shared memory than Docker's default 64MB
     shm_size: "1gb"
     depends_on:
@@ -79,6 +80,11 @@ services:
         condition: service_healthy
     volumes:
       - ./backend/uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
 
@@ -89,6 +95,14 @@ services:
     container_name: ads-frontend
     ports:
       - "8096:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
 volumes:

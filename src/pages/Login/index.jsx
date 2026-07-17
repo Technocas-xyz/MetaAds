@@ -1,8 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuthStore from '../../store/useAuthStore'
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
+
+function redirectToAuthentik() {
+  if (!window.location.hostname.endsWith('.decoinkssuite.com')) return
+  const rd = `${window.location.origin}${window.location.pathname}${window.location.search}`
+  window.location.replace(`${window.location.origin}/outpost.goauthentik.io/start?rd=${encodeURIComponent(rd)}`)
+}
 
 const MOCK_USERS = {
   'admin@decoinks.com': { password: 'password', role: 'admin', name: 'Admin User' },
@@ -28,6 +34,26 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPass, setShowPass] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    async function authenticateWithSso() {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/sso`, { method: 'POST' })
+        if (!res.ok) { redirectToAuthentik(); return }
+        const data = await res.json()
+        if (!active) return
+        localStorage.setItem('auth_token', data.token)
+        setToken(data.token)
+        setUser(data.user)
+        navigate('/dashboard', { replace: true })
+      } catch {
+        redirectToAuthentik()
+      }
+    }
+    authenticateWithSso()
+    return () => { active = false }
+  }, [navigate, setToken, setUser])
 
   async function handleSubmit(e) {
     e.preventDefault()
