@@ -92,20 +92,31 @@ async def get_spend_rate():
     from sqlalchemy import select
     async with AsyncSessionLocal() as db:
         ws = (await db.execute(select(WorkspaceSettings).limit(1))).scalar_one_or_none()
-        rate = ws.default_daily_spend_rate if ws else 20.0
+        rate = float(ws.default_daily_spend_rate) if ws else 20.0
     return {"default_daily_spend_rate": rate}
 
 
 @app.put("/api/spend-rate")
 async def set_spend_rate(payload: dict):
-    """Update the global default daily spend rate."""
+    """Update the global default daily spend rate. Accepts integer or decimal values."""
+    from decimal import Decimal, InvalidOperation
+    from fastapi import HTTPException
     from app.database import AsyncSessionLocal
     from app.models.settings import WorkspaceSettings
     from sqlalchemy import select
-    rate = float(payload.get("rate", 20.0))
+
+    raw_rate = payload.get("rate")
+    if raw_rate is None:
+        raise HTTPException(status_code=422, detail="Missing required field: rate")
+
+    try:
+        rate = Decimal(str(raw_rate))
+    except (InvalidOperation, TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="rate must be a valid number")
+
     if rate < 0:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Rate must be >= 0")
+
     async with AsyncSessionLocal() as db:
         ws = (await db.execute(select(WorkspaceSettings).limit(1))).scalar_one_or_none()
         if ws:
@@ -114,7 +125,7 @@ async def set_spend_rate(payload: dict):
             ws = WorkspaceSettings(default_daily_spend_rate=rate)
             db.add(ws)
         await db.commit()
-    return {"default_daily_spend_rate": rate}
+    return {"default_daily_spend_rate": float(rate)}
 
 
 @app.get("/api/media/{key:path}")
