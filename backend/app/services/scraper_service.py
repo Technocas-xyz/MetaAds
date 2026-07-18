@@ -399,6 +399,7 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
     ProactorEventLoop limitations with subprocess creation.
     """
     import json
+    import subprocess
     import sys
     import tempfile
     from pathlib import Path
@@ -430,41 +431,20 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
         print(f"[SCRAPER] Launching: python={python_exe}")
         print(f"[SCRAPER] Input: {input_file}")
         print(f"[SCRAPER] Output: {output_file}")
-
-        # Use asyncio subprocess to avoid blocking the event loop
-        proc = await asyncio.create_subprocess_exec(
-            python_exe, script_path, input_file, output_file,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        result = subprocess.run(
+            [python_exe, script_path, input_file, output_file],
+            capture_output=True,
+            text=True,
+            timeout=SCRAPE_TIMEOUT,
             cwd=backend_dir,
         )
 
-        try:
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(), timeout=SCRAPE_TIMEOUT
-            )
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.wait()
-            logger.warning(f"[playwright] Subprocess timed out after {SCRAPE_TIMEOUT}s")
-            print(f"[SCRAPER] TIMEOUT after {SCRAPE_TIMEOUT}s")
-            if Path(output_file).exists():
-                with open(output_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                if isinstance(data, list):
-                    print(f"[SCRAPER] Got {len(data)} partial results before timeout")
-                    return data
-            return []
-
-        stdout_text = stdout_bytes.decode('utf-8', errors='replace') if stdout_bytes else ""
-        stderr_text = stderr_bytes.decode('utf-8', errors='replace') if stderr_bytes else ""
-
-        print(f"[SCRAPER] Return code: {proc.returncode}")
-        if stdout_text:
-            for line in stdout_text.strip().split('\n')[-5:]:
+        print(f"[SCRAPER] Return code: {result.returncode}")
+        if result.stdout:
+            for line in result.stdout.strip().split('\n')[-5:]:
                 print(f"[SCRAPER:out] {line}")
-        if stderr_text:
-            stderr_lines = stderr_text.strip().split('\n')
+        if result.stderr:
+            stderr_lines = result.stderr.strip().split('\n')
             for line in stderr_lines[-15:]:
                 print(f"[SCRAPER:err] {line}")
 
@@ -489,10 +469,25 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
                 return data
         else:
             # No output file — capture full error
-            full_stderr = stderr_text[-2000:] if stderr_text else "no stderr"
-            error_msg = f"Subprocess exit={proc.returncode}, no output. stderr: {full_stderr}"
+            full_stderr = result.stderr[-2000:] if result.stderr else "no stderr"
+            error_msg = f"Subprocess exit={result.returncode}, no output. stderr: {full_stderr}"
             print(f"[SCRAPER] {error_msg[:200]}")
             raise RuntimeError(error_msg[:500])
+
+    except subprocess.TimeoutExpired as e:
+        logger.warning(f"[playwright] Subprocess timed out after {SCRAPE_TIMEOUT}s")
+        print(f"[SCRAPER] TIMEOUT after {SCRAPE_TIMEOUT}s")
+        # Try to read partial results
+        if Path(output_file).exists():
+            with open(output_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                print(f"[SCRAPER] Got {len(data)} partial results before timeout")
+                return data
+        # Return empty but don't crash the run — let scrape_competitor save what it has
+        return []
+    except RuntimeError:
+        raise
     except Exception as e:
         logger.error(f"[playwright] Subprocess error: {e}")
         raise
