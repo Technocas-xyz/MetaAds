@@ -1,16 +1,19 @@
 """
-AI Recommendation Router — multi-engine comparison with persistent history + cancel.
+AI Recommendation Router — multi-engine comparison with:
+- Background execution (returns 202 immediately)
+- Persistent PostgreSQL history
+- Real cancellation of in-flight provider tasks
 """
 
 import asyncio
 import logging
 from collections import Counter
 from datetime import datetime, timezone
-from typing import List, Optional
-from uuid import uuid4, UUID
+from typing import List
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db, AsyncSessionLocal
@@ -26,13 +29,12 @@ from app.services.multi_ai import get_engine_status, run_prompt_on_engine
 router = APIRouter(prefix="/ai-recommend", tags=["ai-recommend"])
 logger = logging.getLogger(__name__)
 
-# Active runs (for cancellation)
-_active_runs: dict = {}  # run_id -> {"tasks": [...], "cancelled": bool}
+# Active runs tracking (for cancellation)
+_active_runs: dict = {}  # run_id -> {"tasks": {engine: task}, "cancelled": bool}
 
 
 @router.get("/engines")
 async def list_engines(current_user: User = Depends(get_current_user)):
-    """Return available AI engines with their configuration status."""
     return get_engine_status()
 
 
@@ -41,7 +43,7 @@ async def get_recommendation_context(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Build real data context for the recommendation prompt template."""
+    """Build real data context for prompt template."""
     stmt = (
         select(Ad, AdAnalysis, Competitor.name)
         .join(AdAnalysis, Ad.id == AdAnalysis.ad_id)
@@ -123,17 +125,19 @@ Also provide a brief strategic summary of what the data tells us about the marke
         {"id": "improve", "name": "Improve Our Ads", "description": "Suggest improvements to our current approach"},
         {"id": "market", "name": "Market Analysis", "description": "What's working in the market right now"},
     ]
-
     return context
 
 
-@router.post("/generate")
+@router.post("/generate", status_code=202)
 async def generate_comparison(
     payload: dict,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Run prompt on selected engines in parallel. Supports cancellation."""
+    """
+    Start a comparison run in the background. Returns 202 with run_id immediately.
+    Poll GET /ai-recommend/runs/{run_id} for results.
+    """
     engines = payload.get("engines", [])
     prompt = payload.get("prompt", "")
     system_prompt = payload.get("system_prompt",
@@ -153,49 +157,80 @@ async def generate_comparison(
             raise HTTPException(status_code=400, detail=f"Unknown engine: {eng}")
 
     run_id = str(uuid4())
-    _active_runs[run_id] = {"cancelled": False, "tasks": []}
 
-    # Run each engine as a separate task (cancellable)
+    # Create DB record immediately (status=running)
+    run = AIRecommendRun(id=run_id, prompt=prompt[:5000], engines=engines, results=[], status="running")
+    db.add(run)
+    await db.commit()
+
+    # Launch background execution
+    _active_runs[run_id] = {"tasks": {}, "cancelled": False}
+    asyncio.create_task(_execute_run(run_id, engines, prompt, system_prompt))
+
+    return {"id": run_id, "status": "running", "engines": engines}
+
+
+async def _execute_run(run_id: str, engines: list, prompt: str, system_prompt: str):
+    """Background task: run prompt on each engine, update DB with results."""
+    tasks = {}
     results = []
-    tasks = []
+
+    # Create tasks for each engine
     for eng in engines:
         task = asyncio.create_task(
             run_prompt_on_engine(eng, prompt, system_prompt, max_tokens=2048, temperature=0.5)
         )
-        tasks.append((eng, task))
-    _active_runs[run_id]["tasks"] = [t for _, t in tasks]
+        tasks[eng] = task
 
-    for eng, task in tasks:
+    if run_id in _active_runs:
+        _active_runs[run_id]["tasks"] = tasks
+
+    # Await each, handling cancellation
+    for eng in engines:
+        task = tasks[eng]
         try:
-            if _active_runs.get(run_id, {}).get("cancelled"):
-                task.cancel()
-                results.append({"engine": eng, "name": eng, "error": "Cancelled", "duration": 0, "output": None})
-            else:
-                result = await task
-                results.append(result)
+            result = await task
+            results.append(result)
         except asyncio.CancelledError:
-            results.append({"engine": eng, "name": eng, "error": "Cancelled", "duration": 0, "output": None})
+            results.append({
+                "engine": eng, "name": eng, "model": None,
+                "output": None, "error": "Cancelled by user", "duration": 0,
+            })
         except Exception as e:
-            results.append({"engine": eng, "name": eng, "error": str(e)[:200], "duration": 0, "output": None})
+            results.append({
+                "engine": eng, "name": eng, "model": None,
+                "output": None, "error": str(e)[:200], "duration": 0,
+            })
 
-    # Determine status
-    status = "cancelled" if _active_runs.get(run_id, {}).get("cancelled") else "completed"
+    # Determine final status
+    cancelled = _active_runs.get(run_id, {}).get("cancelled", False)
+    has_output = any(r.get("output") for r in results)
+    has_cancelled = any(r.get("error") == "Cancelled by user" for r in results)
 
-    # Persist to DB
-    run = AIRecommendRun(
-        id=run_id,
-        prompt=prompt[:5000],
-        engines=engines,
-        results=results,
-        status=status,
-    )
-    db.add(run)
-    await db.commit()
+    if cancelled and has_output:
+        status = "partially_completed"
+    elif cancelled:
+        status = "cancelled"
+    elif all(r.get("output") for r in results):
+        status = "completed"
+    elif has_output:
+        status = "partially_completed"
+    else:
+        status = "failed"
+
+    # Update DB
+    async with AsyncSessionLocal() as db:
+        stmt = (
+            update(AIRecommendRun)
+            .where(AIRecommendRun.id == run_id)
+            .values(results=results, status=status)
+        )
+        await db.execute(stmt)
+        await db.commit()
 
     # Cleanup
     _active_runs.pop(run_id, None)
-
-    return {"id": run_id, "results": results, "engines_run": len(engines), "status": status}
+    logger.info(f"[ai-recommend] Run {run_id[:8]} finished: {status}")
 
 
 @router.post("/cancel/{run_id}")
@@ -203,19 +238,46 @@ async def cancel_run(
     run_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Cancel an in-flight comparison run. Completed results are preserved."""
+    """
+    Cancel an in-flight comparison run. Completed provider results are preserved.
+    Note: a request already received by a provider may still incur API cost.
+    """
     if run_id not in _active_runs:
         raise HTTPException(status_code=404, detail="Run not found or already completed")
 
     _active_runs[run_id]["cancelled"] = True
-    for task in _active_runs[run_id].get("tasks", []):
+    cancelled_count = 0
+    for eng, task in _active_runs[run_id].get("tasks", {}).items():
         if not task.done():
             task.cancel()
+            cancelled_count += 1
 
     return {
         "status": "cancelling",
-        "message": "Run is being cancelled. Completed results will be preserved. "
-                   "Note: requests already received by a provider may still incur cost.",
+        "cancelled_engines": cancelled_count,
+        "message": (
+            "Run is being cancelled. Completed results will be preserved. "
+            "Note: requests already received by a provider may still incur cost."
+        ),
+    }
+
+
+@router.get("/runs/{run_id}")
+async def get_run_status(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get current status + results of a comparison run (for polling)."""
+    run = await db.get(AIRecommendRun, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return {
+        "id": str(run.id),
+        "status": run.status,
+        "engines": run.engines,
+        "results": run.results or [],
+        "timestamp": run.created_at.isoformat(),
     }
 
 
@@ -224,10 +286,8 @@ async def get_history(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return recent comparison runs from DB."""
     stmt = select(AIRecommendRun).order_by(desc(AIRecommendRun.created_at)).limit(20)
     runs = (await db.execute(stmt)).scalars().all()
-
     return [
         {
             "id": str(r.id),
@@ -248,7 +308,6 @@ async def get_history_detail(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get full details of a past comparison run."""
     run = await db.get(AIRecommendRun, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")

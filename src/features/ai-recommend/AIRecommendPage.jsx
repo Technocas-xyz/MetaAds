@@ -6,7 +6,7 @@ import {
 import toast from 'react-hot-toast'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
-import { getEngines, getContext, generateComparison, getHistory, getHistoryDetail } from '../../api/aiRecommend'
+import { getEngines, getContext, generateComparison, getRunStatus, cancelRun, getHistory, getHistoryDetail } from '../../api/aiRecommend'
 import { cn } from '../../lib/utils'
 
 const ENGINE_COLORS = {
@@ -23,6 +23,7 @@ export default function AIRecommendPage() {
   })
   const [prompt, setPrompt] = useState('')
   const [running, setRunning] = useState(false)
+  const [currentRunId, setCurrentRunId] = useState(null)
   const [results, setResults] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
 
@@ -54,16 +55,39 @@ export default function AIRecommendPage() {
     setResults(null)
     try {
       const res = await generateComparison({ engines: selectedEngines, prompt })
-      setResults(res.results)
+      setCurrentRunId(res.id)
+      // Poll for results
+      const interval = setInterval(async () => {
+        try {
+          const status = await getRunStatus(res.id)
+          if (status.status !== 'running') {
+            clearInterval(interval)
+            setRunning(false)
+            setResults(status.results)
+            setCurrentRunId(null)
+            if (status.status === 'completed') toast.success('Comparison complete')
+            else if (status.status === 'cancelled') toast('Run cancelled', { icon: '⏹️' })
+            else if (status.status === 'partially_completed') toast('Partially completed (some engines cancelled/failed)', { icon: '⚠️' })
+          }
+        } catch {
+          clearInterval(interval)
+          setRunning(false)
+        }
+      }, 2000)
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Generation failed')
+      setRunning(false)
     }
-    setRunning(false)
   }
 
-  const handleStop = () => {
-    setRunning(false)
-    toast('Cancelled — partial results may still appear', { icon: '⏹️' })
+  const handleStop = async () => {
+    if (!currentRunId) { setRunning(false); return }
+    try {
+      await cancelRun(currentRunId)
+      toast('Cancelling... Completed results will be preserved.\nNote: requests already sent to a provider may still incur cost.', { icon: '⏹️', duration: 5000 })
+    } catch {
+      toast.error('Could not cancel')
+    }
   }
 
   const handleReset = () => {
