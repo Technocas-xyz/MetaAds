@@ -184,13 +184,19 @@ async def fetch_ads(
                 if not ad_id:
                     continue
                 try:
+                    insights_params = {
+                        "fields": ",".join(INSIGHTS_FIELDS),
+                    }
+                    # Use 'maximum' date_preset for lifetime data, or specific preset if provided
+                    if date_preset:
+                        insights_params["date_preset"] = date_preset
+                    else:
+                        insights_params["date_preset"] = "maximum"
+
                     insights_resp = await client.get(
                         _api_url(f"{ad_id}/insights"),
                         headers=_headers(),
-                        params={
-                            "fields": ",".join(INSIGHTS_FIELDS),
-                            "date_preset": date_preset or "lifetime",
-                        },
+                        params=insights_params,
                     )
                     if insights_resp.status_code == 200:
                         insights_data = insights_resp.json().get("data", [])
