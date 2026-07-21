@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
 
+    # Facebook Marketing API
+    FB_ACCESS_TOKEN: str = ""
+    FB_AD_ACCOUNT_ID: str = ""
+    FB_API_VERSION: str = "v21.0"
+
     # Qdrant
     QDRANT_URL: str = "http://localhost:6333"
     QDRANT_API_KEY: str = ""

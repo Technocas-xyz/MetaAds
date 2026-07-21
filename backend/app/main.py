@@ -20,6 +20,7 @@ from app.routers import insights as insights_router
 from app.routers import my_ads as my_ads_router
 from app.routers import removed_ads as removed_ads_router
 from app.routers import ai_recommend as ai_recommend_router
+from app.routers import facebook_ads as facebook_ads_router
 
 
 @asynccontextmanager
@@ -69,6 +70,7 @@ app.include_router(insights_router.router, prefix="/api")
 app.include_router(my_ads_router.router, prefix="/api")
 app.include_router(removed_ads_router.router, prefix="/api")
 app.include_router(ai_recommend_router.router, prefix="/api")
+app.include_router(facebook_ads_router.router, prefix="/api")
 
 
 @app.get("/")
