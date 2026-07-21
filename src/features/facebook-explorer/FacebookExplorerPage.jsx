@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { CheckCircle2, XCircle, RefreshCcw, ChevronDown, ChevronRight, Loader2, Database } from 'lucide-react'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
+import AdDetailTabs from './components/AdDetailTabs'
 import { getFbStatus, getFbFields, getFbAds } from '../../api/facebook'
 import { cn } from '../../lib/utils'
 
@@ -208,61 +209,11 @@ export default function FacebookExplorerPage() {
               </table>
             </div>
 
-            {/* Expanded raw JSON + Insights Diagnostics */}
+            {/* Expanded Ad Detail Tabs */}
             {expandedAd && (() => {
               const ad = ads.find((a) => a.id === expandedAd)
               if (!ad) return null
-              return (
-                <div className="border-t border-border-default bg-gray-50 px-5 py-4 space-y-4">
-                  {/* Insights Diagnostics */}
-                  <div className="rounded-lg border border-border-default bg-white p-4">
-                    <p className="text-[10px] font-semibold text-text-secondary mb-2 uppercase">Insights Diagnostics</p>
-                    <div className="grid grid-cols-2 gap-2 text-[10px] sm:grid-cols-4">
-                      <div>
-                        <span className="text-text-tertiary">Status: </span>
-                        <span className={ad._insights ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
-                          {ad._insights ? '✓ Data returned' : '✗ No data'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-text-tertiary">Rows: </span>
-                        <span>{ad._insights ? '1' : '0'}</span>
-                      </div>
-                      <div>
-                        <span className="text-text-tertiary">Date range: </span>
-                        <span>{ad._insights ? `${ad._insights.date_start} → ${ad._insights.date_stop}` : '—'}</span>
-                      </div>
-                      <div>
-                        <span className="text-text-tertiary">ad_id match: </span>
-                        <span>{ad._insights?.ad_id === ad.id ? '✓ Yes' : ad._insights ? '✗ Mismatch' : '—'}</span>
-                      </div>
-                    </div>
-                    {ad._insights_error && (
-                      <div className="mt-2 rounded bg-red-50 p-2 text-[10px] text-red-700">
-                        <span className="font-semibold">Error: </span>{ad._insights_error}
-                      </div>
-                    )}
-                    {ad._insights && (
-                      <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] sm:grid-cols-6">
-                        {['impressions','reach','spend','clicks','cpc','ctr'].map((k) => (
-                          <div key={k}>
-                            <span className="text-text-tertiary">{k}: </span>
-                            <span className="font-medium">{ad._insights[k] ?? '—'}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Raw JSON */}
-                  <div>
-                    <p className="text-[10px] font-semibold text-text-secondary mb-2">Raw JSON for ad {expandedAd}:</p>
-                    <pre className="max-h-[400px] overflow-auto rounded-lg bg-gray-900 p-4 text-[10px] text-green-300 font-mono">
-                      {JSON.stringify(ad, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              )
+              return <AdDetailTabs ad={ad} />
             })()}
 
             {/* Load more */}
