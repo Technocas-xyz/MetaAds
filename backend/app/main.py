@@ -28,11 +28,15 @@ from app.routers import facebook_performance as facebook_perf_router
 async def lifespan(app: FastAPI):
     from app.services.scheduler_service import start_scheduler, stop_scheduler
     from app.services.ai_client import get_provider_info
+    from app.services.facebook_sync_service import start_fb_scheduler, stop_fb_scheduler
     info = get_provider_info()
     print(f"[startup] Environment: {settings.ENVIRONMENT}")
     print(f"[startup] AI provider: {info['provider']} ({info['model']})")
     await start_scheduler()
+    await start_fb_scheduler()
     yield
+    await stop_scheduler()
+    await stop_fb_scheduler()
     await stop_scheduler()
     print("[shutdown] Goodbye.")
 

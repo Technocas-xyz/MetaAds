@@ -364,3 +364,75 @@ async def _get_competitor_patterns(db: AsyncSession) -> dict:
         "dominant_format": "video" if formats.get("video", 0) > formats.get("image", 0) else "image",
         "note": "Competitor patterns based on days_running (longevity). No competitor CTR/CPC/spend data exists.",
     }
+
+
+# ─── Sync endpoints ───────────────────────────────────────────────────────────
+
+@router.post("/sync/full", status_code=202)
+async def trigger_full_sync(current_user: User = Depends(get_current_user)):
+    """Trigger a full sync: all ads + daily insights. Returns 202 immediately."""
+    from app.services.facebook_sync_service import start_full_sync
+    return await start_full_sync()
+
+
+@router.post("/sync/active", status_code=202)
+async def trigger_active_sync(current_user: User = Depends(get_current_user)):
+    """Trigger active-ads sync (last 7 days). Returns 202 immediately."""
+    from app.services.facebook_sync_service import start_active_sync
+    return await start_active_sync()
+
+
+@router.get("/sync/status")
+async def get_sync_status(current_user: User = Depends(get_current_user)):
+    """Return current sync progress."""
+    from app.services.facebook_sync_service import get_sync_progress
+    from app.models.facebook_owned_ad import FacebookAdSyncRun
+    progress = get_sync_progress()
+    # Last 5 sync runs
+    async with AsyncSessionLocal() as db:
+        from sqlalchemy import desc
+        runs_stmt = select(FacebookAdSyncRun).order_by(desc(FacebookAdSyncRun.started_at)).limit(5)
+        runs = (await db.execute(runs_stmt)).scalars().all()
+        history = [
+            {
+                "id": str(r.id),
+                "sync_type": r.sync_type,
+                "status": r.status,
+                "started_at": r.started_at.isoformat() if r.started_at else None,
+                "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+                "ads_received": r.ads_received,
+                "ads_inserted": r.ads_inserted,
+                "ads_updated": r.ads_updated,
+                "insight_rows_inserted": r.insight_rows_inserted,
+            }
+            for r in runs
+        ]
+    return {"current": progress, "history": history}
+
+
+@router.get("/sync/ads")
+async def list_stored_ads(
+    status_filter: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all stored Facebook own-brand ads from PostgreSQL."""
+    from app.models.facebook_owned_ad import FacebookOwnedAd
+    stmt = select(FacebookOwnedAd)
+    if status_filter:
+        stmt = stmt.where(FacebookOwnedAd.effective_status == status_filter)
+    ads = (await db.execute(stmt.order_by(FacebookOwnedAd.last_synced_at.desc()))).scalars().all()
+    return {
+        "total": len(ads),
+        "ads": [
+            {
+                "meta_ad_id": a.meta_ad_id,
+                "ad_name": a.ad_name,
+                "effective_status": a.effective_status,
+                "campaign_name": a.campaign_name,
+                "last_synced_at": a.last_synced_at.isoformat() if a.last_synced_at else None,
+                "thumbnail_url": a.thumbnail_url,
+            }
+            for a in ads
+        ],
+    }
