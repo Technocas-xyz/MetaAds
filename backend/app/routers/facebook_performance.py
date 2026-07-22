@@ -22,6 +22,7 @@ from app.models.ad_analysis import AdAnalysis
 from app.models.competitor import Competitor
 from app.config import settings
 from app.services import facebook_ads_client as fb
+from app.database import AsyncSessionLocal
 
 router = APIRouter(prefix="/facebook/performance", tags=["facebook-performance"])
 logger = logging.getLogger(__name__)
