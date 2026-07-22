@@ -16,6 +16,7 @@ const MyAds                 = lazy(() => import('../features/my-ads/MyAdsPage'))
 const RemovedAds            = lazy(() => import('../features/removed-ads/RemovedAdsPage'))
 const AIRecommend           = lazy(() => import('../features/ai-recommend/AIRecommendPage'))
 const FacebookExplorer      = lazy(() => import('../features/facebook-explorer/FacebookExplorerPage'))
+const FacebookPerformance   = lazy(() => import('../features/facebook-performance/OwnAdsPerformancePage'))
 const Hooks                 = lazy(() => import('../features/hooks/HooksPage'))
 const Angles                = lazy(() => import('../features/angles/AnglesPage'))
 const Offers                = lazy(() => import('../features/offers/OffersPage'))
@@ -100,6 +101,7 @@ export default function AppRoutes() {
         <Route path="/removed-ads"   element={<RemovedAds />} />
         <Route path="/ai-recommendation" element={<AIRecommend />} />
         <Route path="/facebook/explorer" element={<FacebookExplorer />} />
+        <Route path="/facebook/performance" element={<FacebookPerformance />} />
         <Route path="/hooks"          element={<Hooks />} />
         <Route path="/angles"         element={<Angles />} />
         <Route path="/offers"         element={<Offers />} />

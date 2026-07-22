@@ -54,6 +54,7 @@ const NAV_GROUPS = [
       { label: 'Removed Ads',   to: '/removed-ads',          icon: Trash2 },
       { label: 'AI Recommendation', to: '/ai-recommendation', icon: Sparkles },
       { label: 'FB API Explorer', to: '/facebook/explorer', icon: Database },
+      { label: 'Own Ads Performance', to: '/facebook/performance', icon: TrendingUp },
       { label: 'Ads Library',   to: '/ads',                  icon: BookImage },
       { label: 'AI Analysis',   to: '/ai-analysis',          icon: Brain },
       { label: 'Hook Library',  to: '/hooks',                icon: Anchor },
