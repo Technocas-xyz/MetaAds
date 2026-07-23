@@ -227,7 +227,11 @@ function TableRow({ ad, selected, onSelect, onPreview, expandedId, onToggleExpan
         <td className="hidden px-4 py-4 lg:table-cell">
           <p className="text-sm font-medium text-text-primary">{ad.running_since_days}d</p>
           <p className="text-xs text-text-tertiary">{ad.running_since_date}</p>
-          <EstSpend daysRunning={ad.running_since_days} compact />
+        </td>
+
+        {/* Est. Spend — hidden on md */}
+        <td className="hidden px-4 py-4 lg:table-cell">
+          <EstSpend daysRunning={ad.running_since_days} />
         </td>
 
         {/* Captured At */}
@@ -259,8 +263,8 @@ function TableRow({ ad, selected, onSelect, onPreview, expandedId, onToggleExpan
       {/* Expandable sub-row for hidden columns on tablet */}
       {expanded && (
         <tr className="border-b border-gray-50 bg-gray-50/60 lg:hidden">
-          <td colSpan={11} className="px-6 py-3">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+          <td colSpan={12} className="px-6 py-3">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
               <div>
                 <p className="text-xs text-text-tertiary">Variants</p>
                 <p className="text-sm font-medium text-text-primary">{ad.variants}</p>
@@ -269,6 +273,10 @@ function TableRow({ ad, selected, onSelect, onPreview, expandedId, onToggleExpan
                 <p className="text-xs text-text-tertiary">Running Since</p>
                 <p className="text-sm font-medium text-text-primary">{ad.running_since_days}d</p>
                 <p className="text-xs text-text-tertiary">{ad.running_since_date}</p>
+              </div>
+              <div>
+                <p className="text-xs text-text-tertiary">Est. Spend</p>
+                <EstSpend daysRunning={ad.running_since_days} />
               </div>
               <div>
                 <p className="text-xs text-text-tertiary">Platform</p>
@@ -337,6 +345,7 @@ function MobileCard({ ad, selected, onSelect, onPreview }) {
             </span>
             <span>{ad.competitor.name}</span>
             <span>{ad.running_since_days}d running</span>
+            <EstSpend daysRunning={ad.running_since_days} compact />
           </div>
         </div>
       </div>
@@ -425,6 +434,7 @@ const COLUMNS = [
   { label: 'Confidence',     cls: '' },
   { label: 'Variants',       cls: 'hidden lg:table-cell' },
   { label: 'Running Since',  cls: 'hidden lg:table-cell' },
+  { label: 'Est. Spend',    cls: 'hidden lg:table-cell' },
   { label: 'Captured',       cls: '' },
   { label: '',               cls: '' },
 ]

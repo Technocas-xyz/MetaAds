@@ -49,3 +49,11 @@ backups/*.dump
 *.sql
 ads_clean.csv
 all_tables_schema.txt
+
+# Playwright session state (anonymous, never commit)
+runtime/
+**/runtime/
+storage_state.json
+**/storage_state.json
+meta-session/
+**/meta-session/
