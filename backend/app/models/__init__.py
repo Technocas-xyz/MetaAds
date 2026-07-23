@@ -11,7 +11,7 @@ from app.models.brief import Brief
 from app.models.campaign import Campaign
 from app.models.settings import WorkspaceSettings
 from app.models.scrape_run import ScrapeRun
-from app.models.facebook_owned_ad import FacebookOwnedAd, FacebookAdInsightsDaily, FacebookAdActionsDaily, FacebookAdSyncRun
+from app.models.ai_recommend_run import AIRecommendRun
 
 __all__ = [
     "TimestampedBase",
@@ -27,6 +27,7 @@ __all__ = [
     "Campaign",
     "WorkspaceSettings",
     "ScrapeRun",
+    "AIRecommendRun",
     "FacebookOwnedAd",
     "FacebookAdInsightsDaily",
     "FacebookAdActionsDaily",
