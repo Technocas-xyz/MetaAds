@@ -438,7 +438,7 @@ function ScreenshotCard({ value, onChange, onClearError, error }) {
 export default function AddNewAdPage() {
   const navigate     = useNavigate()
   const { data: competitorsData } = useCompetitors()
-  const competitors  = competitorsData?.data ?? []
+  const competitors  = Array.isArray(competitorsData) ? competitorsData : (competitorsData?.data ?? [])
 
   const createAd       = useCreateAd()
   const submitToReview = useSubmitToReview()

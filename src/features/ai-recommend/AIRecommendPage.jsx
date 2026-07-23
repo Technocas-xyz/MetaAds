@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import { getEngines, getContext, generateComparison, getRunStatus, cancelRun, getHistory, getHistoryDetail } from '../../api/aiRecommend'
+import { getEngines, getContext, generateComparison, getHistory, getHistoryDetail } from '../../api/aiRecommend'
 import { cn } from '../../lib/utils'
 
 const ENGINE_COLORS = {
@@ -88,6 +89,16 @@ export default function AIRecommendPage() {
     } catch {
       toast.error('Could not cancel')
     }
+      setResults(res.results)
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Generation failed')
+    }
+    setRunning(false)
+  }
+
+  const handleStop = () => {
+    setRunning(false)
+    toast('Cancelled — partial results may still appear', { icon: '⏹️' })
   }
 
   const handleReset = () => {

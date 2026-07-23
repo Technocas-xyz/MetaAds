@@ -28,4 +28,8 @@ __all__ = [
     "WorkspaceSettings",
     "ScrapeRun",
     "AIRecommendRun",
+    "FacebookOwnedAd",
+    "FacebookAdInsightsDaily",
+    "FacebookAdActionsDaily",
+    "FacebookAdSyncRun",
 ]

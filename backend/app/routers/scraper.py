@@ -297,6 +297,15 @@ async def trigger_scrape(
     if not competitor:
         raise HTTPException(status_code=404, detail="Competitor not found")
 
+    # Prevent duplicate concurrent scrapes for the same competitor
+    cid = str(competitor_id)
+    if cid in _scraping_competitors:
+        return {
+            "status": "already_running",
+            "competitor_id": cid,
+            "message": f"Scrape already in progress for {competitor.name}",
+        }
+
     # Launch scrape in background
     _asyncio.create_task(_run_single_scrape(competitor_id, competitor.name))
 
@@ -311,12 +320,16 @@ async def _run_single_scrape(competitor_id: UUID, comp_name: str):
     """Background task: run a single competitor scrape."""
     import logging
     log = logging.getLogger(__name__)
+    cid = str(competitor_id)
+    _scraping_competitors.add(cid)
     try:
         async with AsyncSessionLocal() as db:
             await scrape_competitor(competitor_id, db, trigger="manual")
         log.info(f"[bg-scrape] Completed for {comp_name}")
     except Exception as e:
         log.error(f"[bg-scrape] Failed for {comp_name}: {e}")
+    finally:
+        _scraping_competitors.discard(cid)
 
 
 @router.get("/competitors/{competitor_id}/scrape-status")
@@ -413,6 +426,7 @@ from app.services.job_controller import scrape_all_job, analyze_all_job, get_com
 
 _batch_running = False
 _batch_progress = {"total": 0, "completed": 0, "failed": 0, "current": None}
+_scraping_competitors: set = set()  # Track in-progress scrapes to prevent duplicates
 
 
 async def _run_batch_scrape():
