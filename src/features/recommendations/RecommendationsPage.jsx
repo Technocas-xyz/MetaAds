@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   Share2, Bookmark, Sparkles, TrendingUp, TrendingDown, Minus,
   AlertTriangle, Target, Rocket, Flame, Lightbulb, Play,
-  GitCompare, Send, TriangleAlert, ChevronRight,
+  GitCompare, Send, TriangleAlert, ChevronRight, Loader2, AlertCircle,
 } from 'lucide-react'
 import {
   LineChart, Line, ResponsiveContainer,
@@ -15,75 +15,10 @@ import Button from '../../components/ui/Button'
 import HookTypeBadge from '../../components/ui/HookTypeBadge'
 import useUIStore from '../../store/useUIStore'
 import { cn } from '../../lib/utils'
+import { getMarketContext, generateDirections, getGenerationResult, getCachedGeneration } from '../../api/creativeRecommendations'
 
-// ── Inline fixture data ───────────────────────────────────────────────────────
+// ── Inline fixture data — REMOVED, now from API ──────────────────────────────
 const spark = (vals) => vals.map((v, i) => ({ i, v }))
-
-const MARKET_INTEL = [
-  { id: 1, label: 'Speed angle is increasing',     desc: 'Growing competitor usage across Facebook & TikTok',    dir: 'up',   delta: 28,   sparkColor: '#22C55E', sparkData: spark([2,4,5,7,9,11,14]) },
-  { id: 2, label: 'Price hooks becoming saturated', desc: 'Heavy usage across all competitor tiers',              dir: 'down', delta: 14,   sparkColor: '#EF4444', sparkData: spark([14,13,12,10,11,9,8]) },
-  { id: 3, label: 'Video (UGC) outperforming',     desc: 'Higher engagement rate vs static ads consistently',    dir: 'up',   delta: 24,   sparkColor: '#22C55E', sparkData: spark([5,6,7,9,10,12,15]) },
-  { id: 4, label: 'Bundle offers gaining traction', desc: 'Emerging trend in top competitor offer strategies',    dir: 'up',   delta: 18,   sparkColor: '#F59E0B', sparkData: spark([3,4,5,5,7,8,10]) },
-  { id: 5, label: 'Quality angle underserved',      desc: 'Few competitors targeting the premium segment',        dir: 'opp',  delta: null, sparkColor: '#3B82F6', sparkData: spark([2,3,3,4,5,6,8]) },
-]
-
-const RECS = [
-  {
-    id: 'r1', rank: 1, score: 84,
-    title:   'Fast DTF Transfers Without Quality Loss',
-    brief:   'Lead with speed + quality — directly address the objection that fast printing sacrifices quality.',
-    angles:  ['Speed', 'Quality'], hook: 'Pain',
-    opp: 'high', thumbnail: 'https://placehold.co/120x90/6366f1/ffffff?text=Creative+1',
-    isVideo: true, duration: '0:15',
-    saturation: 'Low', novelty: 'High', confidence: 'High',
-    offer: 'Bundle Deal', audience: 'SMB Owners', cta: 'Order Now', format: 'Short Video',
-  },
-  {
-    id: 'r2', rank: 2, score: 78,
-    title:   'Vibrant Prints That Last Longer',
-    brief:   'Showcase durability and color richness with real product comparisons and social proof.',
-    angles:  ['Quality'], hook: 'Benefit',
-    opp: 'high', thumbnail: 'https://placehold.co/120x90/ec4899/ffffff?text=Creative+2',
-    isVideo: false, duration: null,
-    saturation: 'Low', novelty: 'Medium', confidence: 'High',
-    offer: 'Free Shipping', audience: 'Print Sellers', cta: 'Learn More', format: 'Carousel',
-  },
-  {
-    id: 'r3', rank: 3, score: 71,
-    title:   'Same Day Shipping — Boost Your Business',
-    brief:   'Target time-sensitive buyers with a clear same-day shipping promise and reliability angle.',
-    angles:  ['Speed', 'Convenience'], hook: 'Urgency',
-    opp: 'medium', thumbnail: 'https://placehold.co/120x90/f59e0b/ffffff?text=Creative+3',
-    isVideo: true, duration: '0:30',
-    saturation: 'Medium', novelty: 'Medium', confidence: 'Medium',
-    offer: 'Discount 20%', audience: 'Event Organizers', cta: 'Shop Now', format: 'Video',
-  },
-  {
-    id: 'r4', rank: 4, score: 65,
-    title:   'Premium Quality Every Time',
-    brief:   'Position as the premium choice with a trust-based message and a quality guarantee.',
-    angles:  ['Quality', 'Trust'], hook: 'Trust',
-    opp: 'medium', thumbnail: 'https://placehold.co/120x90/22c55e/ffffff?text=Creative+4',
-    isVideo: false, duration: null,
-    saturation: 'Low', novelty: 'Low', confidence: 'Medium',
-    offer: 'Guarantee', audience: 'Retail Brands', cta: 'Get Started', format: 'Static Image',
-  },
-]
-
-const REF_ADS = [
-  { id: 1, comp: 'PrintMagic Pro',  img: 'https://placehold.co/160x120/e2e8f0/94a3b8?text=Ref+1' },
-  { id: 2, comp: 'DTFworld',        img: 'https://placehold.co/160x120/ddd6fe/7c3aed?text=Ref+2' },
-  { id: 3, comp: 'PrintZone',       img: 'https://placehold.co/160x120/dcfce7/16a34a?text=Ref+3' },
-  { id: 4, comp: 'ThreadBeast',     img: 'https://placehold.co/160x120/fee2e2/ef4444?text=Ref+4' },
-  { id: 5, comp: 'VividPrints',     img: 'https://placehold.co/160x120/fef9c3/ca8a04?text=Ref+5' },
-  { id: 6, comp: 'InkMaster',       img: 'https://placehold.co/160x120/e0f2fe/0284c7?text=Ref+6' },
-]
-
-const AVOID = [
-  { id: 1, label: 'Heavy Discount / Price Only',  reason: 'High saturation 82% — competitors dominating this angle' },
-  { id: 2, label: 'Generic Product Showcase',     reason: 'Low engagement trend across Facebook & Instagram' },
-  { id: 3, label: 'Overly Promotional Text',      reason: 'Creative fatigue detected — declining CTR trend' },
-]
 
 const QUICK_ACTIONS = [
   { id: 1, icon: Sparkles,    title: 'Generate Creative Brief', sub: 'Turn recommendations into a full brief',      to: '/briefs' },
@@ -374,6 +309,79 @@ function QuickActionBar() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function RecommendationsPage() {
+  const [context, setContext] = useState(null)
+  const [generation, setGeneration] = useState(null)
+  const [generating, setGenerating] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  // Load market context + cached generation on mount (no paid call)
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [ctx, cached] = await Promise.all([getMarketContext(), getCachedGeneration()])
+        setContext(ctx)
+        if (cached?.status === 'completed') setGeneration(cached)
+      } catch {}
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  // Map API data to UI format
+  const MARKET_INTEL = context?.has_data ? [
+    ...(context.trending_angles || []).map((t, i) => ({
+      id: `t${i}`, label: `${t.type} angle is trending`, desc: `+${t.delta}% share in last 7 days (${t.recent_count} new ads)`, dir: 'up', delta: t.delta, sparkColor: '#22C55E', sparkData: spark([2,4,5,7,9,11,14]),
+    })),
+    ...(context.saturated_angles || []).map((s, i) => ({
+      id: `s${i}`, label: `${s.type} angle is saturated`, desc: `${s.saturation_pct}% of competitors use it (${s.competitor_count}/${s.total_competitors})`, dir: 'down', delta: s.saturation_pct, sparkColor: '#EF4444', sparkData: spark([14,13,12,10,11,9,8]),
+    })),
+    ...(context.underserved_angles || []).map((u, i) => ({
+      id: `u${i}`, label: `${u.type} angle underserved`, desc: `Strong in winners but only ${u.competitor_count} competitors use it`, dir: 'opp', delta: null, sparkColor: '#3B82F6', sparkData: spark([2,3,3,4,5,6,8]),
+    })),
+  ] : []
+
+  const RECS = generation?.result?.directions?.map((d, i) => ({
+    id: `r${i+1}`, rank: i + 1, score: d.ai_score || 0,
+    title: d.headline,
+    brief: d.hook_rationale || d.angle_rationale || '',
+    angles: [d.angle].filter(Boolean), hook: d.hook_type,
+    opp: d.ai_score >= 75 ? 'high' : d.ai_score >= 60 ? 'medium' : 'low',
+    thumbnail: null, isVideo: d.format === 'video', duration: d.format === 'video' ? '0:15' : null,
+    saturation: 'Low', novelty: 'High', confidence: d.ai_score >= 75 ? 'High' : 'Medium',
+    offer: d.offer || 'None', audience: d.target_audience || '', cta: d.cta || 'Learn More', format: d.format || 'image',
+    example_hooks: d.example_hooks || [],
+  })) || []
+
+  const REF_ADS = (context?.reference_ads || []).map((r, i) => ({
+    id: i + 1, comp: r.competitor, img: r.thumbnail_url, hookType: r.hook_type, angle: r.angle, days: r.days_running,
+  }))
+
+  const AVOID = generation?.result?.avoid?.map((a, i) => ({
+    id: i + 1, label: typeof a === 'string' ? a.split(' — ')[0] || a : a, reason: typeof a === 'string' ? a : '',
+  })) || []
+
+  const handleGenerate = async () => {
+    setGenerating(true)
+    try {
+      const res = await generateDirections()
+      // Poll for result
+      const interval = setInterval(async () => {
+        const result = await getGenerationResult(res.run_id)
+        if (result.status === 'completed' || result.status === 'failed') {
+          clearInterval(interval)
+          setGeneration(result)
+          setGenerating(false)
+          if (result.status === 'completed') toast.success('Creative directions generated')
+          else toast.error('Generation failed')
+        }
+      }, 3000)
+    } catch (e) {
+      toast.error('Failed to start generation')
+      setGenerating(false)
+    }
+  }
+
+  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-primary-600" /></div>
   return (
     <div className="space-y-6 p-4 pb-36 sm:p-6 sm:pb-36">
       <Breadcrumb />
@@ -382,38 +390,50 @@ export default function RecommendationsPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold text-text-primary">AI Creative Recommendations</h1>
-          <Badge color="indigo">Beta</Badge>
+          <Badge color="indigo">Live Data</Badge>
+          {context?.has_data && <span className="text-[10px] text-text-tertiary">({context.total_analyzed} ads analyzed, {context.total_winners} winners)</span>}
         </div>
         <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" icon={Share2} onClick={() => toast.success('Share link copied!')}>Share</Button>
-          <Button variant="outline" size="sm" icon={Bookmark} onClick={() => toast.success('Strategy saved!')}>Save Strategy</Button>
-          <Button variant="primary" size="sm" icon={Sparkles} to="/briefs">Generate Creative Brief</Button>
+          <div className="text-[9px] text-text-tertiary flex items-center gap-1">
+            <AlertCircle size={10} className="text-amber-500" />
+            1 paid API call
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={generating ? Loader2 : Sparkles}
+            onClick={handleGenerate}
+            disabled={generating || !context?.has_data}
+            className={generating ? '[&_svg]:animate-spin' : ''}
+          >
+            {generating ? 'Generating...' : 'Generate Directions'}
+          </Button>
         </div>
       </div>
 
-      {/* KPI row */}
+      {/* KPI row — real data from API */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <RecoKPICard
           title="Trending Angles"
-          value={8}
-          note="↑28% vs last 7 days"
-          noteColor="text-success-600"
+          value={context?.trending_angles?.length || 0}
+          note={context?.trending_angles?.length > 0 ? `Growing in last 7d` : 'No clear trends'}
+          noteColor={context?.trending_angles?.length > 0 ? "text-success-600" : "text-text-tertiary"}
           icon={TrendingUp}
           iconBg="bg-green-50"
           iconColor="text-green-600"
         />
         <RecoKPICard
-          title="Saturated Hooks"
-          value={5}
-          note="↑14% saturation risk"
-          noteColor="text-danger-600"
+          title="Saturated Angles"
+          value={context?.saturated_angles?.length || 0}
+          note={context?.saturated_angles?.length > 0 ? '60%+ competitors' : 'None detected'}
+          noteColor={context?.saturated_angles?.length > 0 ? "text-danger-600" : "text-text-tertiary"}
           icon={AlertTriangle}
           iconBg="bg-red-50"
           iconColor="text-red-500"
         />
         <RecoKPICard
           title="Underserved Angles"
-          value={6}
+          value={context?.underserved_angles?.length || 0}
           note="Low competition"
           noteColor="text-blue-600"
           icon={Target}
@@ -421,27 +441,27 @@ export default function RecommendationsPage() {
           iconColor="text-blue-500"
         />
         <RecoKPICard
-          title="Fastest Growing"
-          value="Speed + Quality"
-          note="↑32% growth"
+          title="Total Winners"
+          value={context?.total_winners || 0}
+          note="30+ days running"
           noteColor="text-primary-600"
           icon={Rocket}
           iconBg="bg-primary-50"
           iconColor="text-primary-600"
         />
         <RecoKPICard
-          title="Recommended Themes"
-          value={4}
-          note="High opportunity"
+          title="AI Directions"
+          value={RECS.length || '—'}
+          note={generation?.status === 'completed' ? 'Generated' : 'Click Generate'}
           noteColor="text-amber-600"
           icon={Lightbulb}
           iconBg="bg-amber-50"
           iconColor="text-amber-500"
         />
         <RecoKPICard
-          title="Market Heat Score"
-          value="72 / 100"
-          note="High activity"
+          title="Recent New Ads (7d)"
+          value={context?.recent_ads_7d || 0}
+          note="Competitor activity"
           noteColor="text-red-600"
           icon={Flame}
           iconBg="bg-red-50"
