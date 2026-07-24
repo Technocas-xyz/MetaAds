@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft, Download, CheckCircle2, ZoomIn, ZoomOut,
   Grid, Layers, AlertTriangle, Star, Compass,
   Eye, Type, Focus, TrendingUp, MessageSquare, PenLine, Wand2,
-  Copy, LayoutTemplate, Sparkles,
+  Copy, LayoutTemplate, Sparkles, Upload, Loader2, AlertCircle,
 } from 'lucide-react'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -16,95 +16,10 @@ import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import useUIStore from '../../store/useUIStore'
 import { cn } from '../../lib/utils'
+import { uploadCreative, analyzeCreative, getReview, listReviews, approveCreative, requestRevision } from '../../api/creativeReview'
 
-// ── Inline mock data ──────────────────────────────────────────────────────────
-const MARKERS = [
-  { id: 1, x: 12, y: 8,  w: 34, h: 20 },
-  { id: 2, x: 56, y: 6,  w: 30, h: 18 },
-  { id: 3, x: 8,  y: 60, w: 40, h: 22 },
-  { id: 4, x: 54, y: 66, w: 36, h: 20 },
-]
-
-const VARIANTS = [
-  { id: 1, label: 'Variant 1', img: 'https://placehold.co/80x100/6366f1/ffffff?text=V1' },
-  { id: 2, label: 'Variant 2', img: 'https://placehold.co/80x100/ec4899/ffffff?text=V2' },
-  { id: 3, label: 'Variant 3', img: 'https://placehold.co/80x100/22c55e/ffffff?text=V3' },
-  { id: 4, label: 'Variant 4', img: 'https://placehold.co/80x100/f59e0b/ffffff?text=V4' },
-]
-
-const SUB_SCORES = [
-  { icon: Eye,            label: 'Visual Impact',      score: 82 },
-  { icon: Type,           label: 'Copy Clarity',       score: 75 },
-  { icon: Focus,          label: 'CTA Visibility',     score: 58 },
-  { icon: MessageSquare,  label: 'Hook Strength',      score: 88 },
-  { icon: Layers,         label: 'Brand Consistency',  score: 71 },
-  { icon: TrendingUp,     label: 'Engagement Potential', score: 79 },
-  { icon: AlertTriangle,  label: 'Saturation Risk',    score: 45 },
-  { icon: Star,           label: 'Uniqueness',         score: 83 },
-]
-
-const RADAR_DATA = [
-  { axis: 'Hook',        mine: 88, avg: 65 },
-  { axis: 'Clarity',    mine: 75, avg: 70 },
-  { axis: 'Visual',     mine: 82, avg: 60 },
-  { axis: 'CTA',        mine: 58, avg: 72 },
-  { axis: 'Uniqueness', mine: 83, avg: 55 },
-  { axis: 'Saturation', mine: 45, avg: 68 },
-  { axis: 'Engagement', mine: 79, avg: 63 },
-  { axis: 'Offer',      mine: 65, avg: 70 },
-]
-
-const SUGGESTIONS = [
-  {
-    id: 1, priority: 'high',
-    icon: AlertTriangle,
-    title: 'Make Offer More Visible',
-    desc: 'The 40% discount offer is buried in secondary text. Move it to the headline for an estimated 23% higher CTR.',
-    thumb: 'https://placehold.co/36x36/fee2e2/ef4444?text=!',
-  },
-  {
-    id: 2, priority: 'high',
-    icon: AlertTriangle,
-    title: 'Increase CTA Visibility',
-    desc: 'CTA button blends with background. Increase contrast — aim for a 4.5:1 ratio for accessibility and conversion.',
-    thumb: 'https://placehold.co/36x36/fee2e2/ef4444?text=!',
-  },
-  {
-    id: 3, priority: 'medium',
-    icon: Star,
-    title: 'Improve Visual Hierarchy',
-    desc: 'Eye tracking suggests the visual flow is unclear. Guide viewers from headline → product → CTA.',
-    thumb: 'https://placehold.co/36x36/fef9c3/ca8a04?text=★',
-  },
-  {
-    id: 4, priority: 'medium',
-    icon: Star,
-    title: 'Add Social Proof',
-    desc: 'Adding a customer count or rating near the offer can increase trust and conversion rates by ~15%.',
-    thumb: 'https://placehold.co/36x36/fef9c3/ca8a04?text=★',
-  },
-  {
-    id: 5, priority: 'low',
-    icon: Compass,
-    title: 'Test UGC Version',
-    desc: 'UGC-style creatives in this angle show 18% higher CTR. Consider a user-generated content variant.',
-    thumb: 'https://placehold.co/36x36/eff6ff/2563eb?text=↗',
-  },
-  {
-    id: 6, priority: 'positive',
-    icon: CheckCircle2,
-    title: 'Good Hook',
-    desc: 'The pain-point hook in the opening is effective and scores above average for this product category.',
-    thumb: 'https://placehold.co/36x36/dcfce7/16a34a?text=✓',
-  },
-  {
-    id: 7, priority: 'positive',
-    icon: CheckCircle2,
-    title: 'Good Print Quality',
-    desc: 'High-quality product imagery improves perceived value. This creative executes this well.',
-    thumb: 'https://placehold.co/36x36/dcfce7/16a34a?text=✓',
-  },
-]
+// ── Mock data removed — now API-driven ───────────────────────────────────────
+const VARIANTS = []
 
 const PRIORITY_META = {
   high:     { pill: 'bg-red-50 text-red-700 ring-red-200',      label: 'High Priority',   iconCls: 'text-red-500'   },
@@ -407,6 +322,205 @@ function BottomActionBar() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function CreativeReviewPage() {
+  const [mode, setMode] = useState('upload') // upload | reviewing | result
+  const [reviewId, setReviewId] = useState(null)
+  const [review, setReview] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [uploadForm, setUploadForm] = useState({ headline: '', primary_text: '', cta: '', offer: '', platform: 'facebook' })
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const fileInputRef = useRef(null)
+
+  // Load latest review on mount (cache pattern)
+  useEffect(() => {
+    const loadLatest = async () => {
+      try {
+        const reviews = await listReviews()
+        if (reviews.length > 0 && reviews[0].review_result) {
+          setReview(reviews[0])
+          setReviewId(reviews[0].id)
+          setMode('result')
+        }
+      } catch {}
+    }
+    loadLatest()
+  }, [])
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast.error('Only image files accepted'); return }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Max 10MB'); return }
+    setSelectedFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
+  }
+
+  const handleUploadAndAnalyze = async () => {
+    if (!selectedFile) { toast.error('Select an image first'); return }
+    setAnalyzing(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+      formData.append('headline', uploadForm.headline)
+      formData.append('primary_text', uploadForm.primary_text)
+      formData.append('cta', uploadForm.cta)
+      formData.append('offer', uploadForm.offer)
+      formData.append('platform', uploadForm.platform)
+
+      const uploaded = await uploadCreative(formData)
+      setReviewId(uploaded.id)
+      setMode('reviewing')
+
+      // Start analysis
+      await analyzeCreative(uploaded.id)
+
+      // Poll for result
+      const interval = setInterval(async () => {
+        const r = await getReview(uploaded.id)
+        if (r.status === 'reviewed' || r.status === 'failed') {
+          clearInterval(interval)
+          setReview(r)
+          setMode('result')
+          setAnalyzing(false)
+          if (r.status === 'reviewed') toast.success('Review complete')
+          else toast.error('Review failed')
+        }
+      }, 3000)
+    } catch (e) {
+      toast.error('Upload failed')
+      setAnalyzing(false)
+    }
+  }
+
+  const handleApprove = async () => {
+    if (!reviewId) return
+    await approveCreative(reviewId)
+    setReview((r) => ({ ...r, status: 'approved' }))
+    toast.success('Creative approved for publishing')
+  }
+
+  const handleRequestRevision = async () => {
+    if (!reviewId) return
+    const reason = prompt('What needs to change?')
+    if (!reason) return
+    await requestRevision(reviewId, reason)
+    setReview((r) => ({ ...r, status: 'needs_changes' }))
+    toast('Revision requested', { icon: '📝' })
+  }
+
+  // Map AI response to UI-compatible structures
+  const result = review?.review_result || {}
+  const overall_score = result.overall_score || 0
+  const verdict = result.verdict || 'pending'
+  const SUGGESTIONS = (result.suggestions || []).map((s, i) => ({
+    id: i + 1, priority: s.priority || 'medium',
+    icon: s.priority === 'high' ? AlertTriangle : s.priority === 'positive' ? CheckCircle2 : Star,
+    title: s.title, desc: s.note,
+  }))
+
+  // Sub-scores — ONLY show what the AI actually returned (honesty rule)
+  const alignment = result.alignment_scores || {}
+  const SUB_SCORES = [
+    alignment.copy_clarity != null && { icon: Type, label: 'Copy Clarity', score: alignment.copy_clarity },
+    alignment.cta_presence != null && { icon: Focus, label: 'CTA Presence', score: alignment.cta_presence },
+    alignment.offer_clarity != null && { icon: Layers, label: 'Offer Clarity', score: alignment.offer_clarity },
+    alignment.hook_strength != null && { icon: MessageSquare, label: 'Hook Strength', score: alignment.hook_strength },
+    alignment.visual_impact != null && { icon: Eye, label: 'Visual Impact', score: alignment.visual_impact },
+    alignment.brand_consistency != null && { icon: Star, label: 'Brand Consistency', score: alignment.brand_consistency },
+  ].filter(Boolean)
+
+  const similarity = result.similarity_to_competitors
+  const imageUrl = review?.image_url || previewUrl
+
+  // Upload mode
+  if (mode === 'upload') {
+    return (
+      <div className="space-y-6 p-4 sm:p-6">
+        <Breadcrumb />
+        <h1 className="text-2xl font-semibold text-text-primary">Creative Review & QA</h1>
+        <p className="text-xs text-text-secondary">Upload your ad creative and copy. The AI will review it against winning market patterns.</p>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Upload area */}
+          <div className="rounded-card border-2 border-dashed border-border-default bg-gray-50 p-8 text-center">
+            {previewUrl ? (
+              <img src={previewUrl} alt="Preview" className="mx-auto max-h-64 rounded-lg object-contain" />
+            ) : (
+              <div className="space-y-3">
+                <Upload size={40} className="mx-auto text-text-tertiary" />
+                <p className="text-sm text-text-secondary">Drop your creative image here or click to browse</p>
+                <p className="text-[10px] text-text-tertiary">PNG, JPEG, WebP — max 10MB</p>
+              </div>
+            )}
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+            <button onClick={() => fileInputRef.current?.click()} className="mt-4 rounded-btn border border-border-default px-4 py-2 text-xs font-medium hover:bg-white">
+              {selectedFile ? 'Change Image' : 'Select Image'}
+            </button>
+          </div>
+
+          {/* Form */}
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-text-secondary">Headline</label>
+              <input value={uploadForm.headline} onChange={(e) => setUploadForm(f => ({...f, headline: e.target.value}))} className="mt-1 w-full rounded-btn border border-border-default px-3 py-2 text-sm" placeholder="Your ad headline..." />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary">Primary Text</label>
+              <textarea value={uploadForm.primary_text} onChange={(e) => setUploadForm(f => ({...f, primary_text: e.target.value}))} rows={4} className="mt-1 w-full rounded-btn border border-border-default px-3 py-2 text-sm" placeholder="Ad body copy..." />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-text-secondary">CTA</label>
+                <input value={uploadForm.cta} onChange={(e) => setUploadForm(f => ({...f, cta: e.target.value}))} className="mt-1 w-full rounded-btn border border-border-default px-3 py-2 text-sm" placeholder="Shop Now" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-text-secondary">Offer</label>
+                <input value={uploadForm.offer} onChange={(e) => setUploadForm(f => ({...f, offer: e.target.value}))} className="mt-1 w-full rounded-btn border border-border-default px-3 py-2 text-sm" placeholder="20% off, Free Shipping..." />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary">Platform</label>
+              <select value={uploadForm.platform} onChange={(e) => setUploadForm(f => ({...f, platform: e.target.value}))} className="mt-1 w-full rounded-btn border border-border-default px-3 py-2 text-sm">
+                <option value="facebook">Facebook</option>
+                <option value="instagram">Instagram</option>
+                <option value="both">Both</option>
+              </select>
+            </div>
+
+            <div className="pt-3 flex items-center gap-3">
+              <div className="text-[9px] text-text-tertiary flex items-center gap-1">
+                <AlertCircle size={10} className="text-amber-500" />
+                This will make 1 paid API call
+              </div>
+              <Button
+                variant="primary"
+                size="md"
+                icon={analyzing ? Loader2 : Sparkles}
+                onClick={handleUploadAndAnalyze}
+                disabled={analyzing || !selectedFile}
+                className={analyzing ? '[&_svg]:animate-spin' : ''}
+              >
+                {analyzing ? 'Analyzing...' : 'Analyze Creative'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Reviewing/loading state
+  if (mode === 'reviewing') {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <Loader2 size={32} className="animate-spin text-primary-600" />
+        <p className="text-sm text-text-secondary">AI is reviewing your creative...</p>
+        <p className="text-[10px] text-text-tertiary">This typically takes 10-20 seconds</p>
+      </div>
+    )
+  }
+
+  // Result mode — render the review results
   return (
     <div className="space-y-6 p-4 pb-28 sm:p-6 sm:pb-28">
       <Breadcrumb />
