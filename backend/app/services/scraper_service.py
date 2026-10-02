@@ -145,14 +145,18 @@ async def scrape_competitor(
 
         # SAFETY: If scrape returned 0 and we had existing ads, do NOTHING.
         # This protects against Meta throttling / transient failures.
+        # Per-ad verification is still trusted: Meta answered for each ad directly.
         if len(scraped_ads) == 0 and existing_count_before > 0:
             duration = int((datetime.now(timezone.utc) - start_time).total_seconds())
             run.ads_found = 0
             run.new_ads = 0
-            run.ended_ads = 0
+            run.ended_ads = _apply_verification(existing_map, scrape_meta, set())
             run.status = "completed"
             run.duration_seconds = duration
-            run.error_message = f"Empty result (Meta returned 0). {existing_count_before} existing ads preserved."
+            run.error_message = (
+                f"Empty listing (Meta returned 0). Listing-based removal skipped; "
+                f"{run.ended_ads} ads confirmed ended individually."
+            )
             await db.commit()
             await db.refresh(run)
             logger.warning(
@@ -324,17 +328,7 @@ async def scrape_competitor(
 
         # Per-ad verification works on partial runs too: Meta said directly
         # whether each unseen ad is still in the library.
-        now = datetime.now(timezone.utc)
-        for library_id in scrape_meta.get("verified_active", []):
-            ad = existing_map.get(library_id)
-            if ad:
-                ad.last_seen = now
-        for library_id in scrape_meta.get("verified_gone", []):
-            ad = existing_map.get(library_id)
-            if ad and ad.status not in ("flagged", "removed") and library_id not in found_library_ids:
-                ad.status = "removed"
-                ad.removed_at = now
-                ended_count += 1
+        ended_count += _apply_verification(existing_map, scrape_meta, found_library_ids)
 
         # Update run record
         duration = int((datetime.now(timezone.utc) - start_time).total_seconds())
@@ -402,6 +396,23 @@ async def scrape_competitor(
         await db.refresh(run)
         logger.error(f"Scrape failed for {competitor.name}: {e}")
         raise
+
+
+def _apply_verification(existing_map: Dict[str, Ad], scrape_meta: Dict[str, Any], found_ids: Set[str]) -> int:
+    """Apply per-ad status checks from the scraper. Returns how many ads were marked removed."""
+    now = datetime.now(timezone.utc)
+    for library_id in scrape_meta.get("verified_active", []):
+        ad = existing_map.get(library_id)
+        if ad:
+            ad.last_seen = now
+    ended = 0
+    for library_id in scrape_meta.get("verified_gone", []):
+        ad = existing_map.get(library_id)
+        if ad and ad.status not in ("flagged", "removed") and library_id not in found_ids:
+            ad.status = "removed"
+            ad.removed_at = now
+            ended += 1
+    return ended
 
 
 async def run_scheduled_scrape(competitor_id: UUID) -> None:

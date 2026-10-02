@@ -904,7 +904,9 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                     if not process_cards(label, require_id=True) or not pinfo["complete"]:
                         complete = False
 
-        complete = complete and not any_blocked
+        # An empty listing can't be told apart from a soft block (seen with
+        # Blue Cotton: 0 cards while 57 of its ads were still running).
+        complete = complete and not any_blocked and len(seen_ids) > 0
 
         # ── 3. Verify unseen ads individually ─────────────────────────────
         verified_active: List[str] = []
