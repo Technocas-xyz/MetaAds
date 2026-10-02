@@ -18,7 +18,7 @@ import logging
 import re
 import urllib.parse
 from datetime import datetime, timezone, date as date_type
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import UUID
 
 from sqlalchemy import select
@@ -132,7 +132,7 @@ async def scrape_competitor(
         existing_count_before = len(existing_map)
 
         # Fetch all ads via Playwright
-        scraped_ads = await _fetch_all_ads(competitor, existing_ids)
+        scraped_ads, scrape_meta = await _fetch_all_ads(competitor, existing_ids)
 
         # SAFETY: If scrape returned 0 and we had existing ads, do NOTHING.
         # This protects against Meta throttling / transient failures.
@@ -267,8 +267,13 @@ async def scrape_competitor(
         # likely a transient Meta failure — don't nuke existing data.
         ended_count = 0
         existing_active_count = sum(1 for ad in existing_map.values() if ad.status != "flagged")
+        # Removal detection also requires the scraper to confirm it reached every
+        # active ad. When Meta rate-limits pagination we only see a subset, and
+        # everything outside that subset would otherwise be wrongly marked removed.
+        scrape_complete = bool(scrape_meta.get("complete"))
         run_looks_healthy = (
-            len(found_library_ids) > 0
+            scrape_complete
+            and len(found_library_ids) > 0
             and (existing_active_count == 0 or len(found_library_ids) >= existing_active_count * 0.3)
         )
 
@@ -286,6 +291,12 @@ async def scrape_competitor(
                 f"NOT marking {existing_active_count} existing ads as ended (likely transient failure)"
             )
             print(f"[SCRAPER] WARNING: 0 ads returned, preserving {existing_active_count} existing ads")
+        elif not scrape_complete:
+            run.error_message = (
+                f"Partial scrape: saw {len(found_library_ids)} of ~{scrape_meta.get('reported_total', '?')} ads "
+                f"(rate_limited={scrape_meta.get('rate_limited')}). Removal detection skipped."
+            )
+            logger.warning(f"[scraper] {competitor.name}: {run.error_message}")
 
         # Update run record
         duration = int((datetime.now(timezone.utc) - start_time).total_seconds())
@@ -390,10 +401,11 @@ def _build_url(competitor: Competitor) -> str:
     return f"{AD_LIBRARY_BASE}?{urllib.parse.urlencode(params)}"
 
 
-async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List[Dict[str, Any]]:
+async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Fetch all ads using Playwright — scroll, screenshot, extract.
-    Returns list of ad dicts ready for DB insertion.
+    Returns (ad dicts ready for DB insertion, run metadata). meta["complete"]
+    is False unless the scraper confirmed it reached every active ad.
 
     NOTE: Runs Playwright in a subprocess to avoid Windows asyncio
     ProactorEventLoop limitations with subprocess creation.
@@ -419,6 +431,15 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
 
     # Output file for results
     output_file = input_file.replace('.json', '_output.json')
+    meta_file = f"{output_file}.meta.json"
+    partial_meta = {"complete": False}
+
+    def read_meta() -> Dict[str, Any]:
+        try:
+            with open(meta_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return partial_meta
 
     # Run the scraper script as a subprocess
     script_path = str(Path(__file__).parent.parent / "scripts" / "run_scraper.py")
@@ -453,8 +474,8 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
                     data = json.load(f)
                 if isinstance(data, list):
                     print(f"[SCRAPER] Got {len(data)} partial results before timeout")
-                    return data
-            return []
+                    return data, partial_meta
+            return [], partial_meta
 
         stdout_text = stdout_bytes.decode('utf-8', errors='replace') if stdout_bytes else ""
         stderr_text = stderr_bytes.decode('utf-8', errors='replace') if stderr_bytes else ""
@@ -465,7 +486,7 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
                 print(f"[SCRAPER:out] {line}")
         if stderr_text:
             stderr_lines = stderr_text.strip().split('\n')
-            for line in stderr_lines[-15:]:
+            for line in stderr_lines[-40:]:
                 print(f"[SCRAPER:err] {line}")
 
         # Read results — even on non-zero returncode, there might be partial results
@@ -482,11 +503,12 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
                 print(f"[SCRAPER] Subprocess error: {error_msg}")
                 print(f"[SCRAPER] Partial results: {len(partial)} ads")
                 if partial:
-                    return partial
+                    return partial, partial_meta
                 raise RuntimeError(f"Scraper subprocess failed: {error_msg}")
             else:
-                print(f"[SCRAPER] Loaded {len(data)} ads from output")
-                return data
+                meta = read_meta()
+                print(f"[SCRAPER] Loaded {len(data)} ads from output (complete={meta.get('complete')})")
+                return data, meta
         else:
             # No output file — capture full error
             full_stderr = stderr_text[-2000:] if stderr_text else "no stderr"
@@ -501,6 +523,7 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
         try:
             Path(input_file).unlink(missing_ok=True)
             Path(output_file).unlink(missing_ok=True)
+            Path(meta_file).unlink(missing_ok=True)
         except Exception:
             pass
 
