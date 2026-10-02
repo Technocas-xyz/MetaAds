@@ -338,6 +338,7 @@ SSR_PAGE_SIZE = 30
 RATE_LIMIT_CODE = "1675004"
 MEDIA_SLICES = ["video", "image", "meme", "none"]
 PLATFORM_SLICES = ["facebook", "instagram", "messenger", "audience_network", "threads"]
+MAX_VERIFY = 250  # per-ad status checks per run (~7s each)
 CARD_SELECTORS = ["div._7jyh", "div[role='article']", "a[href*='/ads/library/?id=']"]
 
 
@@ -398,12 +399,17 @@ class PaginationMonitor:
 
 
 def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time_budget: int = 1100,
-               needs_image_ids: Optional[Set[str]] = None):
+               needs_image_ids: Optional[Set[str]] = None, verify_ids: Optional[List[str]] = None):
     """
-    Main scrape function. time_budget is max seconds to spend (default 1100s = ~18min).
+    Main scrape function. time_budget is max seconds to spend.
 
     needs_image_ids: existing ads with no stored image — they get a card
     screenshot on this run so the image survives Meta CDN expiry.
+
+    verify_ids: ads we currently consider active, oldest-seen first. Any that
+    this run didn't see are checked one by one on their own Ad Library page
+    (?id=...), which says plainly when an ad is no longer in the library.
+    Results land in meta["verified_active"] / meta["verified_gone"].
 
     Returns (results, meta). meta["complete"] is True only when every active ad
     was reachable (no unresolved rate limit, block, or time-budget cut-off) —
@@ -837,6 +843,20 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                 ad["platforms"] = platforms
             return ad
 
+        def check_ad_status(library_id: str) -> str:
+            """'active' | 'gone' | 'unknown' from the ad's own Ad Library page."""
+            try:
+                page.goto(f"{AD_LIBRARY_BASE}?id={library_id}", wait_until="domcontentloaded", timeout=45000)
+                time.sleep(4)
+                text = page.inner_text("body")
+            except Exception:
+                return "unknown"
+            if "isn't in the ad library" in text or "isn’t in the ad library" in text:
+                return "gone"
+            if library_id in text:
+                return "active"
+            return "unknown"
+
         def polite_pause():
             time.sleep(random.uniform(4, 8))
 
@@ -885,6 +905,29 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                         complete = False
 
         complete = complete and not any_blocked
+
+        # ── 3. Verify unseen ads individually ─────────────────────────────
+        verified_active: List[str] = []
+        verified_gone: List[str] = []
+        candidates = [lid for lid in (verify_ids or []) if lid not in seen_ids][:MAX_VERIFY]
+        if candidates and not any_blocked:
+            logger.info(f"Verifying {len(candidates)} ads not seen in listing")
+            unknown_streak = 0
+            for lid in candidates:
+                if elapsed() > time_budget - 30:
+                    logger.info(f"  Time budget reached after verifying {len(verified_active) + len(verified_gone)} ads")
+                    break
+                state = check_ad_status(lid)
+                if state == "active":
+                    verified_active.append(lid)
+                elif state == "gone":
+                    verified_gone.append(lid)
+                unknown_streak = unknown_streak + 1 if state == "unknown" else 0
+                if unknown_streak >= 5:
+                    logger.warning("  5 inconclusive ad pages in a row — stopping verification")
+                    break
+                time.sleep(random.uniform(1.5, 3.5))
+            logger.info(f"  Verified: {len(verified_active)} still running, {len(verified_gone)} no longer in library")
 
         logger.info(
             f"\n=== Scrape Summary for '{brand}' ===\n"
@@ -950,6 +993,8 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
         "blocked": any_blocked,
         "duration_seconds": int(elapsed()),
         "loads": loads,
+        "verified_active": verified_active,
+        "verified_gone": verified_gone,
     }
     write_output(output_file, results, meta)
     return results, meta
@@ -982,10 +1027,11 @@ if __name__ == "__main__":
     comp = data["competitor"]
     existing = set(data.get("existing_ids", []))
     needs_image = set(data.get("needs_image_ids", []))
+    verify = data.get("verify_ids", [])
 
     try:
-        ads, meta = run_scrape(comp, existing, output_file=output_file, time_budget=1100,
-                               needs_image_ids=needs_image)
+        ads, meta = run_scrape(comp, existing, output_file=output_file, time_budget=2400,
+                               needs_image_ids=needs_image, verify_ids=verify)
         logger.info(f"Wrote {len(ads)} ads to {output_file} (complete={meta['complete']})")
     except Exception as e:
         import traceback

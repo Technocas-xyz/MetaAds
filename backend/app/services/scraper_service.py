@@ -34,7 +34,7 @@ from app.services.analysis_service import run_analysis
 logger = logging.getLogger(__name__)
 
 # Per-competitor overall timeout (seconds)
-SCRAPE_TIMEOUT = 1200  # 20 minutes — large competitors (CustomInk ~1500) need more time
+SCRAPE_TIMEOUT = 2700  # 45 minutes — listing + slices + per-ad verification (scraper budget is 2400s)
 
 AD_LIBRARY_BASE = "https://www.facebook.com/ads/library/"
 
@@ -133,7 +133,15 @@ async def scrape_competitor(
 
         # Fetch all ads via Playwright
         needs_image_ids = {lid for lid, ad in existing_map.items() if not ad.screenshot_url}
-        scraped_ads, scrape_meta = await _fetch_all_ads(competitor, existing_ids, needs_image_ids)
+        # Ads we believe are running, least recently confirmed first.
+        verify_ids = [
+            ad.ad_library_id for ad in sorted(
+                (a for a in existing_map.values()
+                 if a.status not in ("flagged", "removed") and not a.ad_library_id.startswith("synth_")),
+                key=lambda a: a.last_seen or datetime.min.replace(tzinfo=timezone.utc),
+            )
+        ]
+        scraped_ads, scrape_meta = await _fetch_all_ads(competitor, existing_ids, needs_image_ids, verify_ids)
 
         # SAFETY: If scrape returned 0 and we had existing ads, do NOTHING.
         # This protects against Meta throttling / transient failures.
@@ -314,6 +322,20 @@ async def scrape_competitor(
             )
             logger.warning(f"[scraper] {competitor.name}: {run.error_message}")
 
+        # Per-ad verification works on partial runs too: Meta said directly
+        # whether each unseen ad is still in the library.
+        now = datetime.now(timezone.utc)
+        for library_id in scrape_meta.get("verified_active", []):
+            ad = existing_map.get(library_id)
+            if ad:
+                ad.last_seen = now
+        for library_id in scrape_meta.get("verified_gone", []):
+            ad = existing_map.get(library_id)
+            if ad and ad.status not in ("flagged", "removed") and library_id not in found_library_ids:
+                ad.status = "removed"
+                ad.removed_at = now
+                ended_count += 1
+
         # Update run record
         duration = int((datetime.now(timezone.utc) - start_time).total_seconds())
         run.ads_found = len(found_library_ids)
@@ -421,6 +443,7 @@ async def _fetch_all_ads(
     competitor: Competitor,
     existing_ids: Set[str],
     needs_image_ids: Optional[Set[str]] = None,
+    verify_ids: Optional[List[str]] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Fetch all ads using Playwright — scroll, screenshot, extract.
@@ -450,6 +473,7 @@ async def _fetch_all_ads(
             "competitor": comp_data,
             "existing_ids": existing_list,
             "needs_image_ids": list(needs_image_ids or []),
+            "verify_ids": verify_ids or [],
         }, f)
         input_file = f.name
 
