@@ -338,7 +338,7 @@ SSR_PAGE_SIZE = 30
 RATE_LIMIT_CODE = "1675004"
 MEDIA_SLICES = ["video", "image", "meme", "none"]
 PLATFORM_SLICES = ["facebook", "instagram", "messenger", "audience_network", "threads"]
-MAX_VERIFY = 250  # per-ad status checks per run (~7s each)
+MAX_VERIFY = 80  # per-ad status checks per run (~7s each); more trips Meta's listing block
 CARD_SELECTORS = ["div._7jyh", "div[role='article']", "a[href*='/ads/library/?id=']"]
 
 
