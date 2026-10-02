@@ -26,8 +26,7 @@ import CompetitorInsightsPanel from './components/CompetitorInsightsPanel'
 
 
 const FILTERS = [
-  { key: 'all', label: 'All Ads' },
-  { key: 'active', label: 'Active' },
+  { key: 'all', label: 'Active Ads' },
   { key: 'new_7d', label: 'New (7d)' },
   { key: 'long_running', label: 'Long-Running (3mo+)' },
 ]
@@ -355,6 +354,13 @@ export default function ScraperCompetitorDetailPage() {
               {f.label}
             </button>
           ))}
+          <Link
+            to={`/removed-ads?competitor=${encodeURIComponent(competitor.name)}`}
+            className="ml-1 inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-danger-600 hover:bg-danger-50"
+          >
+            <Trash2 size={12} />
+            Removed Ads ({competitor.removed_ads || 0})
+          </Link>
         </div>
         <button
           onClick={() => setShowPatterns(!showPatterns)}

@@ -132,7 +132,8 @@ async def scrape_competitor(
         existing_count_before = len(existing_map)
 
         # Fetch all ads via Playwright
-        scraped_ads, scrape_meta = await _fetch_all_ads(competitor, existing_ids)
+        needs_image_ids = {lid for lid, ad in existing_map.items() if not ad.screenshot_url}
+        scraped_ads, scrape_meta = await _fetch_all_ads(competitor, existing_ids, needs_image_ids)
 
         # SAFETY: If scrape returned 0 and we had existing ads, do NOTHING.
         # This protects against Meta throttling / transient failures.
@@ -232,6 +233,21 @@ async def scrape_competitor(
                         if active_since else datetime.now(timezone.utc)
                     )
 
+                    # No card screenshot: keep our own copy of the creative now,
+                    # while the Meta CDN link still works (it expires in days).
+                    screenshot_url = ad_data.get("screenshot_url")
+                    creative_url = ad_data.get("ad_creative_url") or ad_data.get("video_poster_url")
+                    if not screenshot_url and creative_url and ("scontent" in creative_url or "fbcdn" in creative_url):
+                        try:
+                            from app.core.storage.s3_writer import download_and_store_image
+                            brand_slug = (competitor.name or "unknown").lower().replace(" ", "_")[:30]
+                            ext = "png" if ".png" in creative_url else "jpg"
+                            screenshot_url = await download_and_store_image(
+                                creative_url, f"ad-creatives/{brand_slug}/{library_id}.{ext}"
+                            )
+                        except Exception:
+                            screenshot_url = None
+
                     new_ad = Ad(
                         competitor_id=competitor_id,
                         ad_library_id=library_id,
@@ -245,7 +261,7 @@ async def scrape_competitor(
                         ad_url=f"https://www.facebook.com/ads/library/?id={library_id}",
                         landing_url=ad_data.get("landing_url"),
                         media_url=ad_data.get("ad_creative_url"),
-                        screenshot_url=ad_data.get("screenshot_url"),
+                        screenshot_url=screenshot_url,
                         ad_video_url=ad_data.get("ad_video_url"),
                         video_poster_url=ad_data.get("video_poster_url"),
                         is_video=ad_data.get("is_video", False),
@@ -401,7 +417,11 @@ def _build_url(competitor: Competitor) -> str:
     return f"{AD_LIBRARY_BASE}?{urllib.parse.urlencode(params)}"
 
 
-async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+async def _fetch_all_ads(
+    competitor: Competitor,
+    existing_ids: Set[str],
+    needs_image_ids: Optional[Set[str]] = None,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Fetch all ads using Playwright — scroll, screenshot, extract.
     Returns (ad dicts ready for DB insertion, run metadata). meta["complete"]
@@ -426,7 +446,11 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> Tupl
 
     # Write input data to a temp file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
-        json.dump({"competitor": comp_data, "existing_ids": existing_list}, f)
+        json.dump({
+            "competitor": comp_data,
+            "existing_ids": existing_list,
+            "needs_image_ids": list(needs_image_ids or []),
+        }, f)
         input_file = f.name
 
     # Output file for results

@@ -101,7 +101,7 @@ def _ad_to_scraped_response(ad: Ad) -> ScrapedAdResponse:
 
     days_running = max(0, (now - first_seen).days)
     start_date_str = first_seen.strftime("%b %d, %Y")
-    is_active = ad.status != "flagged"
+    is_active = ad.status not in ("flagged", "removed")
 
     # Get AI analysis if available
     hook_type = None
@@ -191,6 +191,11 @@ async def get_scraper_competitor(
         raise HTTPException(status_code=404, detail="Competitor not found")
 
     stats = await _compute_scraper_stats(db, competitor_id)
+    removed_ads = (await db.execute(
+        select(func.count()).select_from(Ad).where(
+            Ad.competitor_id == competitor_id, Ad.status == "removed",
+        )
+    )).scalar() or 0
 
     # Get recent runs
     runs_stmt = (
@@ -217,6 +222,7 @@ async def get_scraper_competitor(
         long_running_3mo=stats["long_running_3mo"],
         oldest_ad_days=stats["oldest_ad_days"],
         avg_duration_days=stats["avg_duration_days"],
+        removed_ads=removed_ads,
         recent_runs=[ScrapeRunResponse.model_validate(r) for r in runs],
     )
 
@@ -226,7 +232,7 @@ async def list_competitor_ads(
     competitor_id: UUID,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    filter: Optional[str] = Query(None, description="all|active|new_7d|long_running"),
+    filter: Optional[str] = Query(None, description="all|active|new_7d|long_running (removed ads are listed by /removed-ads)"),
     sort: str = Query("-first_seen"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -238,9 +244,11 @@ async def list_competitor_ads(
         raise HTTPException(status_code=404, detail="Competitor not found")
 
     now = datetime.now(timezone.utc)
-    stmt = select(Ad).where(Ad.competitor_id == competitor_id).options(
-        selectinload(Ad.analysis)
-    )
+    # Removed ads have their own page (/removed-ads) — keep this list to ads still running.
+    stmt = select(Ad).where(
+        Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
+    ).options(selectinload(Ad.analysis))
 
     # Apply filter — uses active_since (real Meta start date)
     if filter == "active":

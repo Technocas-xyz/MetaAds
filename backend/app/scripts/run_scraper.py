@@ -397,9 +397,13 @@ class PaginationMonitor:
             logger.warning(f"  Pagination error from Meta: {body[:200]}")
 
 
-def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time_budget: int = 1100):
+def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time_budget: int = 1100,
+               needs_image_ids: Optional[Set[str]] = None):
     """
     Main scrape function. time_budget is max seconds to spend (default 1100s = ~18min).
+
+    needs_image_ids: existing ads with no stored image — they get a card
+    screenshot on this run so the image survives Meta CDN expiry.
 
     Returns (results, meta). meta["complete"] is True only when every active ad
     was reachable (no unresolved rate limit, block, or time-budget cut-off) —
@@ -680,6 +684,8 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                             stats["skipped"] += 1
                             fresh_media = _extract_media_only(card, wide_card)
                             fresh_media["library_id"] = library_id
+                            if needs_image_ids and library_id in needs_image_ids:
+                                fresh_media["screenshot_url"] = capture_screenshot(card, library_id, timestamp)
                             fresh_media["_is_refresh"] = True
                             results.append(fresh_media)
                             continue
@@ -707,31 +713,32 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
             return True
 
         minio_state = {"available": None, "shots": 0}
-        MAX_SCREENSHOTS = 50
+        MAX_SCREENSHOTS = 300
+
+        def capture_screenshot(card, key: str, timestamp: str) -> Optional[str]:
+            """Screenshot a card into MinIO; returns its URL or None."""
+            if minio_state["available"] is False or minio_state["shots"] >= MAX_SCREENSHOTS:
+                return None
+            try:
+                screenshot_bytes = card.screenshot(timeout=8000)
+            except Exception:
+                return None  # Screenshot failed — non-fatal
+            minio_state["shots"] += 1
+            try:
+                # Sync upload: Playwright's sync API already runs an event loop in
+                # this thread, so the async upload_bytes can't be driven from here.
+                from app.core.storage.s3_writer import upload_bytes_sync
+                url = upload_bytes_sync(screenshot_bytes, f"ad_library/{brand}/{timestamp}_ad_{key}.png", "image/png")
+                minio_state["available"] = True
+                return url
+            except Exception as e:
+                if minio_state["available"] is None:
+                    minio_state["available"] = False
+                    logger.warning(f"MinIO upload failed ({e}) — skipping screenshots for remaining ads.")
+                return None
 
         def _extract_ad(card, wide_card, full_text, wide_text, library_id, idx, timestamp) -> Dict[str, Any]:
-            screenshot_url = None
-            if minio_state["available"] is not False and minio_state["shots"] < MAX_SCREENSHOTS:
-                try:
-                    screenshot_bytes = card.screenshot(timeout=8000)
-                    minio_state["shots"] += 1
-                    filename = f"ad_library/{brand}/{timestamp}_ad_{library_id or idx}.png"
-                    try:
-                        from app.core.storage.s3_writer import upload_bytes
-                        import asyncio
-                        loop = asyncio.new_event_loop()
-                        screenshot_url = loop.run_until_complete(
-                            upload_bytes(screenshot_bytes, filename, "image/png")
-                        )
-                        loop.close()
-                        if minio_state["available"] is None:
-                            minio_state["available"] = True
-                    except Exception:
-                        if minio_state["available"] is None:
-                            minio_state["available"] = False
-                            logger.warning("MinIO unreachable — skipping screenshots for remaining ads.")
-                except Exception:
-                    pass  # Screenshot failed — non-fatal
+            screenshot_url = capture_screenshot(card, library_id or str(idx), timestamp)
 
             ad = {
                 "library_id": library_id,
@@ -974,9 +981,11 @@ if __name__ == "__main__":
 
     comp = data["competitor"]
     existing = set(data.get("existing_ids", []))
+    needs_image = set(data.get("needs_image_ids", []))
 
     try:
-        ads, meta = run_scrape(comp, existing, output_file=output_file, time_budget=1100)
+        ads, meta = run_scrape(comp, existing, output_file=output_file, time_budget=1100,
+                               needs_image_ids=needs_image)
         logger.info(f"Wrote {len(ads)} ads to {output_file} (complete={meta['complete']})")
     except Exception as e:
         import traceback

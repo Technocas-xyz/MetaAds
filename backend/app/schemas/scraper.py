@@ -67,6 +67,7 @@ class ScraperCompetitorDetailResponse(BaseModel):
     long_running_3mo: int = 0
     oldest_ad_days: int = 0
     avg_duration_days: float = 0.0
+    removed_ads: int = 0
 
     # Recent runs
     recent_runs: List[ScrapeRunResponse] = Field(default_factory=list)
