@@ -17,7 +17,7 @@ const COLOR_MAP = {
 const VARIANT_IDX = { solid: 0, soft: 1, outline: 2 }
 
 const SIZE_CLS = {
-  xs: 'px-1.5 py-0    text-[10px] font-medium rounded',
+  xs: 'px-1.5 py-0    text-[11px] font-medium rounded',
   sm: 'px-2   py-0.5  text-xs     font-medium rounded-full',
   md: 'px-2.5 py-0.5  text-xs     font-semibold rounded-full',
 }
@@ -36,7 +36,7 @@ export default function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1',
+        'inline-flex w-fit items-center gap-1',
         SIZE_CLS[size] ?? SIZE_CLS.sm,
         colorCls,
         className

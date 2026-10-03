@@ -21,10 +21,12 @@ function fmtDate(iso) {
 const TIER_COLOR = { High: 'red', Medium: 'amber', Low: 'slate' }
 
 function Trend({ up, value }) {
+  // No movement, nothing to show.
+  if (!value) return null
   return (
     <span className={cn('flex items-center gap-0.5 text-xs', up ? 'text-success-600' : 'text-danger-600')}>
       {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-      {up ? '↑' : '↓'}{value}%
+      {value}%
     </span>
   )
 }
@@ -34,7 +36,7 @@ function RowSkeleton() {
   return (
     <tr className="border-b border-gray-50">
       {[160, 100, 80, 80, 80, 80, 72, 72, 72, 48, 88, 64].map((w, i) => (
-        <td key={i} className="px-4 py-4">
+        <td key={i} className="px-4 py-2.5">
           <div className="h-3.5 animate-pulse rounded bg-gray-200" style={{ width: w }} />
         </td>
       ))}
@@ -114,7 +116,7 @@ function TableRow({ competitor, expanded, onToggleExpand }) {
         className="cursor-pointer border-b border-gray-50 transition-colors last:border-0 hover:bg-gray-50/60"
       >
         {/* Competitor */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-border-default bg-gray-50 text-sm font-bold text-text-tertiary">
               {competitor.logo_url
@@ -138,10 +140,10 @@ function TableRow({ competitor, expanded, onToggleExpand }) {
         </td>
 
         {/* Niche */}
-        <td className="px-4 py-4">
-          <div className="flex flex-col gap-1">
+        <td className="px-4 py-2.5">
+          <div className="flex max-w-[180px] flex-wrap gap-1">
             {competitor.niches.map((n) => (
-              <span key={n} className="inline-flex w-fit items-center rounded-md bg-gray-50 px-2 py-0.5 text-xs text-text-secondary ring-1 ring-gray-200">
+              <span key={n} className="inline-flex w-fit items-center whitespace-nowrap rounded-md bg-gray-50 px-1.5 py-0.5 text-[11px] text-text-secondary ring-1 ring-gray-200">
                 {n}
               </span>
             ))}
@@ -149,61 +151,61 @@ function TableRow({ competitor, expanded, onToggleExpand }) {
         </td>
 
         {/* Priority Tier */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <Badge color={TIER_COLOR[competitor.priority_tier] ?? 'gray'}>
             {competitor.priority_tier}
           </Badge>
         </td>
 
         {/* Total Ads */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <p className="text-sm font-medium text-text-primary">{s.total_ads.toLocaleString()}</p>
           <Trend up={s.total_ads_trend_up} value={s.total_ads_trend} />
         </td>
 
         {/* Existing Ads */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <p className="text-sm font-medium text-text-primary">{s.existing_ads.toLocaleString()}</p>
-          <span className="text-xs text-success-600">↑ {s.existing_ads_trend}% · {s.existing_ads_pct}%</span>
+          <span className="text-xs text-text-tertiary">{s.existing_ads_pct}% of total</span>
         </td>
 
         {/* Removed Ads — hidden on md, shown lg+ */}
-        <td className="hidden px-4 py-4 lg:table-cell">
+        <td className="hidden px-4 py-2.5 lg:table-cell">
           <p className="text-sm font-medium text-text-primary">{s.removed_ads.toLocaleString()}</p>
-          <span className="text-xs text-danger-600">{s.removed_ads_pct}%</span>
+          <span className="text-xs text-text-tertiary">{s.removed_ads_pct}% of total</span>
         </td>
 
         {/* Avg Duration */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <p className="text-sm font-medium text-text-primary">{s.avg_duration}</p>
-          <p className="text-xs text-text-tertiary">vs prev: {s.avg_duration_prev}</p>
+          {!!s.avg_duration_prev && <p className="text-xs text-text-tertiary">vs prev: {s.avg_duration_prev}</p>}
         </td>
 
         {/* Running 7+ Days */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <p className="text-sm font-medium text-text-primary">{s.running_7_plus.toLocaleString()}</p>
           <p className="text-xs text-text-tertiary">({s.running_7_plus_pct}% of existing)</p>
         </td>
 
         {/* Winning Ads */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <p className="text-sm font-medium text-text-primary">{s.winning_ads.toLocaleString()}</p>
           <p className="text-xs text-text-tertiary">({s.winning_ads_pct}% of existing)</p>
         </td>
 
         {/* Variants — hidden on md */}
-        <td className="hidden px-4 py-4 lg:table-cell">
+        <td className="hidden px-4 py-2.5 lg:table-cell">
           <p className="text-sm font-medium text-text-primary">{s.variants}</p>
         </td>
 
         {/* Last Activity */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <p className="whitespace-nowrap text-xs font-medium text-text-primary">{date}</p>
           <p className="text-xs text-text-tertiary">{time}</p>
         </td>
 
         {/* Actions */}
-        <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-end gap-1">
             <Link
               to={`/competitors/${competitor.id}`}
@@ -240,7 +242,7 @@ function TableRow({ competitor, expanded, onToggleExpand }) {
               <div>
                 <p className="text-xs text-text-tertiary">Removed Ads</p>
                 <p className="text-sm font-medium text-text-primary">{s.removed_ads.toLocaleString()}</p>
-                <span className="text-xs text-danger-600">{s.removed_ads_pct}%</span>
+                <span className="text-xs text-text-tertiary">{s.removed_ads_pct}% of total</span>
               </div>
               <div>
                 <p className="text-xs text-text-tertiary">Variants</p>
@@ -280,7 +282,7 @@ function MobileCard({ competitor }) {
 
           <div className="mt-2 flex flex-wrap gap-1">
             {competitor.niches.map((n) => (
-              <span key={n} className="rounded-md bg-gray-50 px-1.5 py-0.5 text-[10px] text-text-secondary ring-1 ring-gray-200">
+              <span key={n} className="rounded-md bg-gray-50 px-1.5 py-0.5 text-[11px] text-text-secondary ring-1 ring-gray-200">
                 {n}
               </span>
             ))}
@@ -288,20 +290,20 @@ function MobileCard({ competitor }) {
 
           <div className="mt-3 grid grid-cols-3 gap-3 border-t border-gray-50 pt-2.5">
             <div>
-              <p className="text-[10px] text-text-tertiary">Total Ads</p>
+              <p className="text-[11px] text-text-tertiary">Total Ads</p>
               <p className="text-sm font-semibold text-text-primary">{s.total_ads.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-[10px] text-text-tertiary">Existing</p>
+              <p className="text-[11px] text-text-tertiary">Existing</p>
               <p className="text-sm font-semibold text-text-primary">{s.existing_ads.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-[10px] text-text-tertiary">Winning</p>
+              <p className="text-[11px] text-text-tertiary">Winning</p>
               <p className="text-sm font-semibold text-text-primary">{s.winning_ads.toLocaleString()}</p>
             </div>
           </div>
 
-          <p className="mt-2 text-[10px] text-text-tertiary">Last activity: {date} · {time}</p>
+          <p className="mt-2 text-[11px] text-text-tertiary">Last activity: {date} · {time}</p>
         </div>
       </div>
     </Link>

@@ -99,7 +99,8 @@ def _ad_to_response(ad: Ad) -> AdResponse:
         cta=ad.cta,
         ad_url=ad.ad_url,
         landing_url=ad.landing_url,
-        media_url=ad.media_url,
+        # Stored copy first: Meta CDN links expire within days.
+        media_url=ad.screenshot_url or ad.media_url,
         is_video=ad.is_video,
         variants=ad.variants,
         running_since_days=days,

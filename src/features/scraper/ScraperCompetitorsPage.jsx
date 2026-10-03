@@ -216,7 +216,7 @@ export default function ScraperCompetitorsPage() {
       />
 
       {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="stagger grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KPICard
           title="Competitors"
           value={kpis.totalCompetitors}
@@ -322,12 +322,12 @@ export default function ScraperCompetitorsPage() {
           <p className="text-sm text-text-secondary">No competitors found</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="stagger grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {filtered.map((comp) => (
             <div
               key={comp.id}
               onClick={() => navigate(`/scraper/competitors/${comp.id}`)}
-              className="group cursor-pointer rounded-card border border-border-default bg-white p-5 shadow-card transition-all hover:border-primary-200 hover:shadow-card-hover"
+              className="lift group cursor-pointer rounded-card border border-border-default bg-white p-4 shadow-card hover:border-primary-200"
             >
               {/* Top row: name + status */}
               <div className="flex items-start justify-between gap-3">
@@ -351,21 +351,21 @@ export default function ScraperCompetitorsPage() {
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                 <div>
                   <p className="text-lg font-bold text-text-primary">{comp.total_active_ads || 0}</p>
-                  <p className="text-[10px] text-text-secondary">Active Ads</p>
+                  <p className="text-[11px] text-text-secondary">Active Ads</p>
                 </div>
                 <div>
                   <p className="text-lg font-bold text-green-600">{comp.new_7d || 0}</p>
-                  <p className="text-[10px] text-text-secondary">New (7d)</p>
+                  <p className="text-[11px] text-text-secondary">New (7d)</p>
                 </div>
                 <div>
                   <p className="text-lg font-bold text-purple-600">{comp.long_running_3mo || 0}</p>
-                  <p className="text-[10px] text-text-secondary">3mo+</p>
+                  <p className="text-[11px] text-text-secondary">3mo+</p>
                 </div>
               </div>
 
               {/* Footer: last scraped + actions */}
               <div className="mt-4 flex items-center justify-between border-t border-border-default pt-3">
-                <p className="text-[10px] text-text-secondary">
+                <p className="text-[11px] text-text-secondary">
                   {comp.last_run
                     ? `Scraped ${formatDistanceToNow(new Date(comp.last_run), { addSuffix: true })}`
                     : 'Never scraped'}

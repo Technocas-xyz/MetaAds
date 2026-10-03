@@ -34,41 +34,41 @@ function buildKPIs(summary) {
   return [
     {
       title:     'Total Ads Captured',
-      value:     summary?.total_ads ?? 1248,
+      value:     summary?.total_ads,
       icon:      Layers,
       iconBg:    'bg-primary-50',
       iconColor: 'text-primary-500',
-      trend:     Math.abs(summary?.trends?.total_ads ?? 18.6),
+      trend:     Math.abs(summary?.trends?.total_ads ?? 0),
       trendUp:   true,
       href:      '/ads',
     },
     {
       title:     'Analyzed Ads',
-      value:     summary?.analyzed_ads ?? 856,
+      value:     summary?.analyzed_ads,
       icon:      CheckCircle2,
       iconBg:    'bg-success-50',
       iconColor: 'text-success-600',
-      trend:     Math.abs(summary?.trends?.analyzed_ads ?? 22.4),
+      trend:     Math.abs(summary?.trends?.analyzed_ads ?? 0),
       trendUp:   true,
       href:      '/ads?status=analyzed',
     },
     {
       title:     'Pending Analysis',
-      value:     summary?.pending_analysis ?? 292,
+      value:     summary?.pending_analysis,
       icon:      Clock,
       iconBg:    'bg-warning-50',
       iconColor: 'text-warning-600',
-      trend:     Math.abs(summary?.trends?.pending_analysis ?? 8.1),
+      trend:     Math.abs(summary?.trends?.pending_analysis ?? 0),
       trendUp:   false,
       href:      '/ads?status=pending',
     },
     {
       title:     'Low Confidence',
-      value:     summary?.low_confidence ?? 67,
+      value:     summary?.low_confidence,
       icon:      AlertCircle,
       iconBg:    'bg-danger-50',
       iconColor: 'text-danger-600',
-      trend:     Math.abs(summary?.trends?.low_confidence ?? 5.3),
+      trend:     Math.abs(summary?.trends?.low_confidence ?? 0),
       trendUp:   false,
       href:      '/low-confidence',
     },
@@ -86,7 +86,7 @@ export default function DashboardPage() {
   const barData    = hooksData?.map((h) => ({ name: h.type,  value: h.count })) ?? []
   const donutData  = anglesData?.map((a) => ({ name: a.angle, value: a.count, pct: a.pct })) ?? []
   const ads        = adsData?.data ?? []
-  const totalLabel = `${summary?.analyzed_ads ?? 856} Total`
+  const totalLabel = `${(summary?.analyzed_ads ?? 0).toLocaleString()} Total`
   const kpis       = buildKPIs(summary)
 
   return (
@@ -99,7 +99,7 @@ export default function DashboardPage() {
       />
 
       {/* KPI grid — 4 cols desktop, 2 cols tablet, 1 col mobile */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="stagger grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {summaryLoading
           ? Array.from({ length: 4 }).map((_, i) => <KPICardSkeleton key={i} />)
           : kpis.map((kpi) => <KPICard key={kpi.title} {...kpi} />)}

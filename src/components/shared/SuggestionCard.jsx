@@ -74,7 +74,7 @@ export default function SuggestionCard({
           <div className="flex flex-wrap items-start justify-between gap-2">
             <p className="text-sm font-semibold text-text-primary">{title}</p>
             {priority && (
-              <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', priorityCls)}>
+              <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', priorityCls)}>
                 {priority}
               </span>
             )}
@@ -88,7 +88,7 @@ export default function SuggestionCard({
           {tags?.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {tags.map((tag) => (
-                <span key={tag} className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">
+                <span key={tag} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
                   {tag}
                 </span>
               ))}

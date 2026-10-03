@@ -174,7 +174,7 @@ function AIModelCard() {
               <option value="gpt-4-turbo">OpenAI GPT-4 Turbo</option>
               <option value="claude-3-opus">Claude 3 Opus</option>
             </SelectInput>
-            <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+            <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">
               Active
             </span>
           </div>
@@ -199,7 +199,7 @@ function AIModelCard() {
             {...register('temperature', { valueAsNumber: true })}
           />
           <div className="mt-1.5 flex items-center gap-2">
-            <span className="text-[10px] text-text-tertiary">0</span>
+            <span className="text-[11px] text-text-tertiary">0</span>
             <Controller
               control={control}
               name="temperature"
@@ -215,8 +215,8 @@ function AIModelCard() {
                 />
               )}
             />
-            <span className="text-[10px] text-text-tertiary">1.0</span>
-            <span className="w-8 text-right text-[10px] font-medium text-text-primary">{Number(temp).toFixed(2)}</span>
+            <span className="text-[11px] text-text-tertiary">1.0</span>
+            <span className="w-8 text-right text-[11px] font-medium text-text-primary">{Number(temp).toFixed(2)}</span>
           </div>
         </FieldRow>
 
@@ -235,7 +235,7 @@ function AIModelCard() {
               { key: 'lowLabel',       label: 'Low Confidence',   static: 'Below 40%',  color: 'text-red-700 bg-red-50 border-red-200' },
             ].map(({ key, label, suffix, static: staticVal, color }) => (
               <div key={key} className={`rounded-lg border p-2 text-center ${color}`}>
-                <p className="text-[10px] font-medium">{label}</p>
+                <p className="text-[11px] font-medium">{label}</p>
                 {staticVal ? (
                   <p className="mt-0.5 text-xs font-semibold">{staticVal}</p>
                 ) : (
@@ -245,7 +245,7 @@ function AIModelCard() {
                       className="w-10 rounded border-0 bg-transparent text-center text-xs font-semibold focus:outline-none"
                       {...register(key, { valueAsNumber: true })}
                     />
-                    <span className="text-[10px]">{suffix}</span>
+                    <span className="text-[11px]">{suffix}</span>
                   </div>
                 )}
               </div>
@@ -550,7 +550,7 @@ export default function SettingsPage() {
   const currentTab = TABS.find((t) => t.id === activeTab)
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <Breadcrumb />
 
       {/* Header */}

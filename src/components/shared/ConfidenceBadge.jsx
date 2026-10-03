@@ -24,7 +24,7 @@ export default function ConfidenceBadge({
   const colorCls = getConfidenceBadgeColor(level)
 
   const sizeMap = {
-    xs: 'px-1.5 py-0   text-[10px]',
+    xs: 'px-1.5 py-0   text-[11px]',
     sm: 'px-2.5 py-0.5 text-xs',
     md: 'px-3   py-1   text-sm',
   }

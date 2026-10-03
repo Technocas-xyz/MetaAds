@@ -22,7 +22,7 @@ function RowSkeleton() {
   return (
     <tr className="border-b border-gray-50">
       {[48, 128, 88, 72, 72, 72, 88, 56].map((w, i) => (
-        <td key={i} className="px-4 py-3.5">
+        <td key={i} className="px-4 py-2">
           <div
             className="h-3.5 animate-pulse rounded bg-gray-200"
             style={{ width: w }}
@@ -131,10 +131,10 @@ function TableRow({ ad, onAnalyze }) {
     >
       {/* Preview */}
       <td
-        className="px-4 py-3"
+        className="px-4 py-2"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+        <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
           {ad.media_url ? (
             <img
               src={ad.media_url}
@@ -153,13 +153,13 @@ function TableRow({ ad, onAnalyze }) {
       </td>
 
       {/* Competitor */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-2">
         <p className="text-sm font-medium text-text-primary">
           {ad.competitor?.name ?? '—'}
         </p>
         <span
           className={cn(
-            'mt-0.5 inline-block rounded-full px-1.5 text-[10px] font-medium',
+            'mt-0.5 inline-block rounded-full px-1.5 text-[11px] font-medium',
             tier === 1
               ? 'bg-primary-50 text-primary-700'
               : 'bg-gray-100 text-text-secondary'
@@ -170,34 +170,34 @@ function TableRow({ ad, onAnalyze }) {
       </td>
 
       {/* Hook Type */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-2">
         <HookTypeBadge type={ad.hook_type} />
       </td>
 
       {/* Angle */}
-      <td className="px-4 py-3 text-sm text-text-secondary">
+      <td className="px-4 py-2 text-sm text-text-secondary">
         {ad.angle ?? '—'}
       </td>
 
       {/* Offer */}
-      <td className="px-4 py-3 text-sm text-text-secondary">
+      <td className="px-4 py-2 text-sm text-text-secondary">
         {ad.offer_type ?? '—'}
       </td>
 
       {/* Confidence */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-2">
         <ConfidenceBadge score={ad.confidence_score} />
       </td>
 
       {/* Captured At */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-2">
         <p className="text-xs font-medium text-text-primary">{date}</p>
         <p className="text-xs text-text-secondary">{time}</p>
       </td>
 
       {/* Actions */}
       <td
-        className="px-4 py-3"
+        className="px-4 py-2"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-end gap-1">
@@ -232,7 +232,7 @@ function MobileCard({ ad }) {
     >
       <div className="flex gap-3">
         {/* Thumbnail */}
-        <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+        <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
           {ad.media_url ? (
             <img src={ad.media_url} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -253,7 +253,7 @@ function MobileCard({ ad }) {
               </p>
               <span
                 className={cn(
-                  'mt-0.5 inline-block rounded-full px-1.5 text-[10px] font-medium',
+                  'mt-0.5 inline-block rounded-full px-1.5 text-[11px] font-medium',
                   tier === 1
                     ? 'bg-primary-50 text-primary-700'
                     : 'bg-gray-100 text-text-secondary'

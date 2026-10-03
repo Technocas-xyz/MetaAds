@@ -27,7 +27,6 @@ function NativeSelect({ value, onChange, children, placeholder }) {
         'hover:bg-gray-50',
         !value && 'text-text-tertiary',
         value && 'text-text-primary',
-        'bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748B\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'m6 9 6 6 6-6\'/%3E%3C/svg%3E")] bg-[right_0.5rem_center] bg-no-repeat'
       )}
     >
       <option value="">{placeholder}</option>
@@ -155,7 +154,7 @@ export default function CompetitorAnalysisPage() {
               {insights.hooks?.slice(0, 4).map((h) => (
                 <div key={h.type} className="flex items-center justify-between">
                   <Badge color="blue" size="xs">{h.type}</Badge>
-                  <span className="text-[10px] text-text-secondary">{h.pct}% ({h.count})</span>
+                  <span className="text-[11px] text-text-secondary">{h.pct}% ({h.count})</span>
                 </div>
               ))}
             </div>
@@ -167,7 +166,7 @@ export default function CompetitorAnalysisPage() {
               {insights.angles?.slice(0, 4).map((a) => (
                 <div key={a.type} className="flex items-center justify-between">
                   <Badge color="purple" size="xs">{a.type}</Badge>
-                  <span className="text-[10px] text-text-secondary">{a.pct}% ({a.count})</span>
+                  <span className="text-[11px] text-text-secondary">{a.pct}% ({a.count})</span>
                 </div>
               ))}
             </div>
@@ -179,7 +178,7 @@ export default function CompetitorAnalysisPage() {
               {insights.offers?.slice(0, 4).map((o) => (
                 <div key={o.type} className="flex items-center justify-between">
                   <Badge color="amber" size="xs">{o.type}</Badge>
-                  <span className="text-[10px] text-text-secondary">{o.pct}% ({o.count})</span>
+                  <span className="text-[11px] text-text-secondary">{o.pct}% ({o.count})</span>
                 </div>
               ))}
             </div>
@@ -190,17 +189,17 @@ export default function CompetitorAnalysisPage() {
             <div className="space-y-1">
               {insights.winning_ads?.slice(0, 3).map((w, i) => (
                 <div key={i} className="flex items-center justify-between">
-                  <span className="text-[10px] text-text-primary truncate max-w-[120px]">
+                  <span className="text-[11px] text-text-primary truncate max-w-[120px]">
                     {w.hook_text || w.hook_type || 'Ad'}
                   </span>
-                  <span className="text-[10px] text-text-secondary flex items-center gap-0.5">
+                  <span className="text-[11px] text-text-secondary flex items-center gap-0.5">
                     <Trophy size={9} className="text-amber-500" />
                     {w.days_running}d
                   </span>
                 </div>
               ))}
               {(!insights.winning_ads || insights.winning_ads.length === 0) && (
-                <p className="text-[10px] text-text-tertiary italic">No long-running ads yet</p>
+                <p className="text-[11px] text-text-tertiary italic">No long-running ads yet</p>
               )}
             </div>
           </div>
@@ -327,7 +326,7 @@ export default function CompetitorAnalysisPage() {
                         <p className="text-xs font-medium text-text-primary truncate">
                           {ad.headline || '—'}
                         </p>
-                        <p className="text-[10px] text-text-secondary truncate mt-0.5">
+                        <p className="text-[11px] text-text-secondary truncate mt-0.5">
                           {ad.primary_text?.slice(0, 80) || '—'}
                         </p>
                       </td>
@@ -335,7 +334,7 @@ export default function CompetitorAnalysisPage() {
                       <td className="px-4 py-3">
                         {ad.hook_type && <HookTypeBadge type={ad.hook_type} />}
                         {ad.hook_text && (
-                          <p className="text-[9px] text-text-tertiary mt-0.5 truncate max-w-[120px]">{ad.hook_text}</p>
+                          <p className="text-[10px] text-text-tertiary mt-0.5 truncate max-w-[120px]">{ad.hook_text}</p>
                         )}
                       </td>
                       {/* Angle */}
@@ -348,7 +347,7 @@ export default function CompetitorAnalysisPage() {
                           <Badge color="amber" size="xs">{ad.offer_type}</Badge>
                         )}
                         {ad.offer_value && ad.offer_value !== 'None' && (
-                          <p className="text-[9px] text-text-tertiary mt-0.5">{ad.offer_value}</p>
+                          <p className="text-[10px] text-text-tertiary mt-0.5">{ad.offer_value}</p>
                         )}
                       </td>
                       {/* Confidence */}
@@ -368,7 +367,7 @@ export default function CompetitorAnalysisPage() {
                       <td className="px-4 py-3 text-center">
                         <Link
                           to={`/ads/${ad.id}`}
-                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium text-primary-600 hover:bg-primary-50 transition"
+                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-primary-600 hover:bg-primary-50 transition"
                         >
                           <Eye size={12} />
                           View

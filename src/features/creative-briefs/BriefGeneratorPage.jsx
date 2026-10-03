@@ -228,15 +228,15 @@ function Step3Content({ objective }) {
           <dl className="space-y-2.5">
             {STEP_1_FIELDS.map(({ label, key }) => (
               <div key={key}>
-                <dt className="text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">{label}</dt>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">{label}</dt>
                 <dd className="mt-0.5 text-xs font-medium text-text-primary">{objective[key]}</dd>
               </div>
             ))}
             <div>
-              <dt className="text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">KPI Focus</dt>
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">KPI Focus</dt>
               <dd className="mt-1 flex flex-wrap gap-1">
                 {objective.kpiFocus.map((k) => (
-                  <span key={k} className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-700">{k}</span>
+                  <span key={k} className="rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold text-primary-700">{k}</span>
                 ))}
               </dd>
             </div>
@@ -247,7 +247,7 @@ function Step3Content({ objective }) {
         <Card
           title="Market Opportunity"
           headerRight={
-            <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-[10px] font-semibold text-green-700">High</span>
+            <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-[11px] font-semibold text-green-700">High</span>
           }
         >
           <p className="text-xs leading-relaxed text-text-secondary">
@@ -265,11 +265,11 @@ function Step3Content({ objective }) {
             {CREATIVE_DIRECTION.map(({ label, value, pill }) => (
               <div key={label} className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">{label}</dt>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">{label}</dt>
                   <dd className="mt-0.5 text-xs font-medium text-text-primary">{value}</dd>
                 </div>
                 {pill && (
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${pill.cls}`}>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${pill.cls}`}>
                     {pill.text}
                   </span>
                 )}
@@ -312,7 +312,7 @@ function Step3Content({ objective }) {
                       <p className="text-xs font-medium text-text-primary">{sec.value}</p>
                       {sec.sub && <p className="text-[11px] text-text-tertiary">{sec.sub}</p>}
                       {sec.pill && (
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${sec.pill.cls}`}>
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${sec.pill.cls}`}>
                           {sec.pill.text}
                         </span>
                       )}
@@ -380,10 +380,10 @@ function Step3Content({ objective }) {
                     </span>
                   </div>
                 </div>
-                <p className="line-clamp-2 text-[10px] font-medium leading-tight text-text-primary">{ad.name}</p>
+                <p className="line-clamp-2 text-[11px] font-medium leading-tight text-text-primary">{ad.name}</p>
                 <div className="flex flex-wrap gap-1">
-                  <span className="rounded bg-gray-100 px-1 py-0.5 text-[9px] text-text-tertiary">{ad.format}</span>
-                  <span className={`rounded px-1 py-0.5 text-[9px] font-semibold ${ad.color}`}>{ad.performer}</span>
+                  <span className="rounded bg-gray-100 px-1 py-0.5 text-[10px] text-text-tertiary">{ad.format}</span>
+                  <span className={`rounded px-1 py-0.5 text-[10px] font-semibold ${ad.color}`}>{ad.performer}</span>
                 </div>
               </div>
             ))}
@@ -394,7 +394,7 @@ function Step3Content({ objective }) {
         <Card
           title="AI Insights Behind This Brief"
           headerRight={
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-text-secondary">Last 7 Days</span>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-text-secondary">Last 7 Days</span>
           }
         >
           <ul className="space-y-2">
@@ -406,7 +406,7 @@ function Step3Content({ objective }) {
             ))}
           </ul>
           <div className="mt-3">
-            <p className="mb-1 text-[10px] font-semibold text-text-tertiary">Speed + Quality Angle vs Market Avg</p>
+            <p className="mb-1 text-[11px] font-semibold text-text-tertiary">Speed + Quality Angle vs Market Avg</p>
             <ResponsiveContainer width="100%" height={80}>
               <LineChart data={INSIGHT_TREND} margin={{ top: 2, right: 4, left: -28, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -436,8 +436,8 @@ function Step3Content({ objective }) {
                 <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}>
                   <Icon size={16} className={iconColor} />
                 </span>
-                <p className="text-[10px] font-medium leading-tight text-text-primary">{label}</p>
-                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold text-text-tertiary">{fmt}</span>
+                <p className="text-[11px] font-medium leading-tight text-text-primary">{label}</p>
+                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-text-tertiary">{fmt}</span>
               </div>
             ))}
           </div>
@@ -458,7 +458,7 @@ function Step3Content({ objective }) {
                 )}
                 <div>
                   <p className={`text-xs font-semibold ${i === 0 ? 'text-primary-700' : 'text-text-primary'}`}>{step.label}</p>
-                  <p className="text-[10px] text-text-tertiary">{step.sub}</p>
+                  <p className="text-[11px] text-text-tertiary">{step.sub}</p>
                 </div>
               </div>
             ))}

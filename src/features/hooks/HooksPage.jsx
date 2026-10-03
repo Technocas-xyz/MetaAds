@@ -29,6 +29,19 @@ import {
 } from '../../hooks/queries/useLibraries'
 import { cn } from '../../lib/utils'
 
+// First, last and the pages around the current one — never the whole list.
+function pageWindow(page, totalPages) {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1)
+  const out = [1]
+  const from = Math.max(2, page - 1)
+  const to = Math.min(totalPages - 1, page + 1)
+  if (from > 2) out.push('…')
+  for (let i = from; i <= to; i++) out.push(i)
+  if (to < totalPages - 1) out.push('…')
+  out.push(totalPages)
+  return out
+}
+
 const PAGE_SIZE = 10
 
 const TYPE_HEX = {
@@ -140,7 +153,7 @@ function HookTypeDonutCard({ data, isLoading }) {
               <span className="text-lg font-bold leading-none text-text-primary">
                 {(total / 1000).toFixed(1)}k
               </span>
-              <span className="mt-0.5 text-[10px] text-text-secondary">Total</span>
+              <span className="mt-0.5 text-[11px] text-text-secondary">Total</span>
             </div>
           </div>
           <ul className="flex-1 space-y-1.5 overflow-hidden">
@@ -360,7 +373,7 @@ function CompetitorAvatars({ competitors, extra }) {
         <div
           key={c.id}
           title={c.name}
-          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white"
+          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-white"
           style={{
             backgroundColor: AVATAR_BG[Number(c.id) % AVATAR_BG.length],
             zIndex: competitors.length - i,
@@ -371,7 +384,7 @@ function CompetitorAvatars({ competitors, extra }) {
       ))}
       {extra > 0 && (
         <div
-          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-[9px] font-bold text-gray-600"
+          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-[10px] font-bold text-gray-600"
           style={{ zIndex: 0 }}
         >
           +{extra}
@@ -427,7 +440,7 @@ function HooksTable({ rows, total, page, onPageChange, onSelectHook }) {
                         {row.text}
                       </span>
                       {row.rank === 1 && (
-                        <span className="mt-0.5 inline-flex flex-shrink-0 items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 ring-1 ring-primary-200">
+                        <span className="mt-0.5 inline-flex flex-shrink-0 items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700 ring-1 ring-primary-200">
                           Top
                         </span>
                       )}
@@ -525,7 +538,7 @@ function HooksTable({ rows, total, page, onPageChange, onSelectHook }) {
                     <div className="mt-1.5 flex flex-wrap items-center gap-2">
                       <HookTypeBadge type={row.type} />
                       {row.rank === 1 && (
-                        <span className="inline-flex items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 ring-1 ring-primary-200">
+                        <span className="inline-flex items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700 ring-1 ring-primary-200">
                           Top
                         </span>
                       )}
@@ -577,7 +590,9 @@ function HooksTable({ rows, total, page, onPageChange, onSelectHook }) {
             >
               <ChevronLeft size={15} />
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            {pageWindow(page, totalPages).map((p, idx) => p === '…' ? (
+              <span key={`gap-${idx}`} className="px-1 text-xs text-text-tertiary">…</span>
+            ) : (
               <button
                 key={p}
                 type="button"
@@ -664,7 +679,7 @@ function HookDetailDrawer({ hook, onClose }) {
                       key={label}
                       className="rounded-lg border border-border-default p-3 text-center"
                     >
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
                         {label}
                       </p>
                       <p className={cn('mt-1 text-xl font-bold text-text-primary', color)}>
@@ -835,7 +850,7 @@ export default function HookLibraryPage() {
   )
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <Breadcrumb />
 
       <PageHeader
@@ -850,7 +865,7 @@ export default function HookLibraryPage() {
       />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-5">
         {sumLoading
           ? Array.from({ length: 5 }).map((_, i) => <KPIShimmer key={i} />)
           : (
@@ -882,11 +897,11 @@ export default function HookLibraryPage() {
               />
 
               {/* Top Performing Hook — custom card */}
-              <div className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+              <div className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-text-secondary">Top Performing Hook</p>
-                    <p className="mt-2 line-clamp-2 text-sm font-bold leading-snug text-text-primary">
+                    <p className="text-xs font-medium text-text-secondary">Top Performing Hook</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-text-primary">
                       {summary?.top_performing_hook?.text ?? '—'}
                     </p>
                     <p className="mt-2 text-xs text-text-secondary">
@@ -896,22 +911,22 @@ export default function HookLibraryPage() {
                       </span>
                     </p>
                   </div>
-                  <div className="flex-shrink-0 rounded-xl bg-amber-50 p-2.5">
-                    <Award size={22} className="text-amber-600" />
+                  <div className="flex-shrink-0 rounded-lg bg-amber-50 p-2">
+                    <Award size={18} className="text-amber-600" />
                   </div>
                 </div>
               </div>
 
               {/* Trending Hook — custom card */}
-              <div className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+              <div className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-text-secondary">Trending Hook</p>
-                    <p className="mt-2 line-clamp-2 text-sm font-bold leading-snug text-text-primary">
+                    <p className="text-xs font-medium text-text-secondary">Trending Hook</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-text-primary">
                       {summary?.trending_hook?.text ?? '—'}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold text-success-700 ring-1 ring-success-200">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-[11px] font-semibold text-success-700 ring-1 ring-success-200">
                         <TrendingUp size={9} />
                         Trending
                       </span>
@@ -920,8 +935,8 @@ export default function HookLibraryPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex-shrink-0 rounded-xl bg-success-50 p-2.5">
-                    <TrendingUp size={22} className="text-success-600" />
+                  <div className="flex-shrink-0 rounded-lg bg-success-50 p-2">
+                    <TrendingUp size={18} className="text-success-600" />
                   </div>
                 </div>
               </div>

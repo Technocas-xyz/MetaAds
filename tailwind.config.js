@@ -1,3 +1,5 @@
+import animate from 'tailwindcss-animate'
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
@@ -92,9 +94,24 @@ export default {
         card: '12px',
         btn:  '8px',
       },
+
+      // ── Motion ──────────────────────────────────────────────────────────
+      keyframes: {
+        'page-in':  { from: { opacity: '0', transform: 'translateY(6px)' },  to: { opacity: '1', transform: 'none' } },
+        'rise-in':  { from: { opacity: '0', transform: 'translateY(10px)' }, to: { opacity: '1', transform: 'none' } },
+        shimmer:    { from: { backgroundPosition: '200% 0' }, to: { backgroundPosition: '-200% 0' } },
+        'bar-grow': { from: { transform: 'scaleX(0)' }, to: { transform: 'scaleX(1)' } },
+      },
+      animation: {
+        'page-in':  'page-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both',
+        'rise-in':  'rise-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both',
+        shimmer:    'shimmer 1.6s linear infinite',
+        'bar-grow': 'bar-grow 600ms cubic-bezier(0.16, 1, 0.3, 1) both',
+      },
     },
   },
   plugins: [
+    animate,
     // Container utility (center + padding already set in theme.container above)
     function ({ addUtilities }) {
       addUtilities({

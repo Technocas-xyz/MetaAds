@@ -282,7 +282,7 @@ export default function ScraperCompetitorDetailPage() {
       )}
 
       {/* Stat bar — 5 KPI cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <KPICard
           title="Total Ads"
           value={competitor.total_ads || 0}
@@ -393,7 +393,7 @@ export default function ScraperCompetitorDetailPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          <div className="stagger grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {ads.map((ad) => (
             <AdCard key={ad.id} ad={ad} onAnalyze={handleAnalyze} />
           ))}

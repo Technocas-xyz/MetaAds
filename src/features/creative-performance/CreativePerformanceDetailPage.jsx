@@ -145,7 +145,7 @@ function DonutChart({ data, total, title, subtitle }) {
           </ResponsiveContainer>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <p className="text-sm font-bold text-text-primary">{total}</p>
-            <p className="text-[10px] text-text-tertiary">Total Sales</p>
+            <p className="text-[11px] text-text-tertiary">Total Sales</p>
           </div>
         </div>
         <ul className="flex-1 space-y-1.5">
@@ -186,7 +186,7 @@ export default function CreativePerformanceDetailPage() {
   )
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
+    <div className="space-y-5">
       {/* Breadcrumb */}
       <Breadcrumb items={[
         { label: 'Performance Intelligence', to: '/performance' },
@@ -211,15 +211,15 @@ export default function CreativePerformanceDetailPage() {
                   <Play size={18} className="ml-0.5 text-gray-800" />
                 </span>
               </div>
-              <span className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1 py-0.5 text-[9px] font-medium text-white">15s</span>
+              <span className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1 py-0.5 text-[10px] font-medium text-white">15s</span>
             </div>
 
             {/* Meta info */}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-xs font-medium text-text-tertiary">Creative Performance Intelligence</p>
-                <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Active</span>
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">UGC Video</span>
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">Active</span>
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700">UGC Video</span>
               </div>
               <div className="mt-1 flex items-center gap-2">
                 <h1 className="text-base font-semibold text-text-primary">Fast DTF Transfers – Same Day Shipping</h1>
@@ -306,7 +306,7 @@ export default function CreativePerformanceDetailPage() {
           >
             <div className="flex items-start justify-between gap-1">
               <p className="text-[11px] font-medium leading-tight text-text-secondary">{kpi.label}</p>
-              <span className={`shrink-0 text-[10px] font-semibold ${kpi.positive ? 'text-success-600' : 'text-danger-600'}`}>
+              <span className={`shrink-0 text-[11px] font-semibold ${kpi.positive ? 'text-success-600' : 'text-danger-600'}`}>
                 <ArrowUpRight size={10} className="inline -mt-0.5" />
                 {kpi.delta.replace('↑', '')}
               </span>

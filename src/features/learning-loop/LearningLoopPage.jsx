@@ -154,7 +154,7 @@ function FunnelViz() {
             <span className="truncate text-[11px] font-semibold leading-tight">{stage.label}</span>
             <div className="ml-2 flex shrink-0 items-baseline gap-1.5">
               <span className="text-sm font-bold">{stage.count.toLocaleString()}</span>
-              <span className="text-[10px] opacity-80">{stage.pct}</span>
+              <span className="text-[11px] opacity-80">{stage.pct}</span>
             </div>
           </div>
           {i < FUNNEL_STAGES.length - 1 && (
@@ -228,7 +228,7 @@ function WhatLearningCard() {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center justify-between gap-1">
                 <p className="text-xs font-semibold text-text-primary">{item.label}</p>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${item.pill.cls}`}>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${item.pill.cls}`}>
                   {item.pill.text}
                 </span>
               </div>
@@ -249,7 +249,7 @@ function LearningSignalsCard() {
           <thead>
             <tr className="border-b border-border-default">
               {['Signal', 'Impact', 'Conf.', 'Trend'].map((h) => (
-                <th key={h} className="pb-2.5 pr-3 text-left text-[10px] font-semibold uppercase tracking-wide text-text-tertiary last:pr-0">{h}</th>
+                <th key={h} className="pb-2.5 pr-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-tertiary last:pr-0">{h}</th>
               ))}
             </tr>
           </thead>
@@ -279,7 +279,7 @@ function DecisionImpactCard() {
           <thead>
             <tr className="border-b border-border-default">
               {['Decision Type', 'Used', 'ROAS', 'CPA', 'Score'].map((h) => (
-                <th key={h} className="pb-2.5 pr-3 text-left text-[10px] font-semibold uppercase tracking-wide text-text-tertiary last:pr-0">{h}</th>
+                <th key={h} className="pb-2.5 pr-3 text-left text-[11px] font-semibold uppercase tracking-wide text-text-tertiary last:pr-0">{h}</th>
               ))}
             </tr>
           </thead>
@@ -291,7 +291,7 @@ function DecisionImpactCard() {
                 <td className="py-2.5 pr-3 text-[11px] font-semibold text-green-700">{row.roasImpact}</td>
                 <td className="py-2.5 pr-3 text-[11px] font-semibold text-green-700">{row.cpaImpact}</td>
                 <td className="py-2.5">
-                  <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border text-[10px] font-bold ${IMPACT_SCORE_COLOR(row.score)}`}>
+                  <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-bold ${IMPACT_SCORE_COLOR(row.score)}`}>
                     {row.score}
                   </span>
                 </td>
@@ -308,7 +308,7 @@ function ModelPerfCard() {
   return (
     <Card
       title="AI Model Performance Over Time"
-      headerRight={<span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-text-secondary">Last 8 Weeks</span>}
+      headerRight={<span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-text-secondary">Last 8 Weeks</span>}
     >
       <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1">
         {[['Accuracy %', '#6366F1'], ['Impact Score', '#22C55E']].map(([l, c]) => (
@@ -333,7 +333,7 @@ function ModelPerfCard() {
 
 function RecentEventsCard() {
   const TH = ({ children }) => (
-    <th className="whitespace-nowrap px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">
+    <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">
       {children}
     </th>
   )
@@ -363,7 +363,7 @@ function RecentEventsCard() {
                 <TD className="font-medium text-text-primary max-w-[120px] truncate">{row.event}</TD>
                 <TD className="max-w-[200px] text-text-secondary" style={{ whiteSpace: 'normal' }}>{row.learned}</TD>
                 <TD>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${IMPACT_COLOR[row.impact]}`}>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${IMPACT_COLOR[row.impact]}`}>
                     {row.impact}
                   </span>
                 </TD>
@@ -449,7 +449,7 @@ function OverviewTab() {
               <div className="min-w-0">
                 <p className="text-[11px] font-medium leading-tight text-text-secondary">{kpi.label}</p>
                 <p className="mt-1.5 text-2xl font-bold tracking-tight text-text-primary">{kpi.value}</p>
-                <p className="mt-0.5 text-[10px] text-text-tertiary">{kpi.note}</p>
+                <p className="mt-0.5 text-[11px] text-text-tertiary">{kpi.note}</p>
               </div>
               <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${kpi.iconBg}`}>
                 <kpi.icon size={16} className={kpi.iconColor} />
@@ -463,7 +463,7 @@ function OverviewTab() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <Card title="Recommendation Adoption Funnel">
           <FunnelViz />
-          <p className="mt-3 text-[10px] text-text-tertiary">
+          <p className="mt-3 text-[11px] text-text-tertiary">
             From generation to delivery in live campaigns
           </p>
         </Card>
@@ -479,7 +479,7 @@ function OverviewTab() {
       </div>
 
       {/* Row 4: Recent Events + Feedback */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_300px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         <RecentEventsCard />
         <FeedbackCard />
       </div>
@@ -503,7 +503,7 @@ export default function LearningLoopPage() {
   const [activeTab, setActiveTab] = useState('Overview')
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
+    <div className="space-y-5">
       <Breadcrumb />
 
       {/* Header */}

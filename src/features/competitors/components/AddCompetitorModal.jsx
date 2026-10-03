@@ -179,7 +179,7 @@ export default function AddCompetitorModal({ open, onOpenChange }) {
                   )}
                 />
               </div>
-              <p className="mt-1 text-[10px] text-text-tertiary">
+              <p className="mt-1 text-[11px] text-text-tertiary">
                 Open the brand on Meta Ad Library, copy the page URL — we'll pull the page ID automatically.
               </p>
               <FieldError message={errors.meta_ad_library_url?.message} />
@@ -207,7 +207,7 @@ export default function AddCompetitorModal({ open, onOpenChange }) {
                   placeholder="e.g. DTF, Custom Printing"
                   className={INPUT}
                 />
-                <p className="mt-1 text-[10px] text-text-tertiary">Comma-separate multiple</p>
+                <p className="mt-1 text-[11px] text-text-tertiary">Comma-separate multiple</p>
               </div>
               <div>
                 <Label htmlFor="priority_tier">Priority</Label>

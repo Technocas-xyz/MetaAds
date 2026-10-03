@@ -29,7 +29,7 @@ function Initials({ name, size = 28 }) {
 
   return (
     <span
-      className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary-100 text-[10px] font-bold text-primary-700"
+      className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary-100 text-[11px] font-bold text-primary-700"
       style={{ width: size, height: size }}
       aria-hidden="true"
     >
@@ -77,7 +77,7 @@ export default function CompetitorChip({
 
       {/* Tier */}
       {tier && (
-        <span className={cn('shrink-0 rounded-full px-1.5 py-0 text-[10px] font-semibold', TIER_STYLE[tier] ?? TIER_STYLE[3])}>
+        <span className={cn('shrink-0 rounded-full px-1.5 py-0 text-[11px] font-semibold', TIER_STYLE[tier] ?? TIER_STYLE[3])}>
           {TIER_LABEL[tier] ?? `T${tier}`}
         </span>
       )}

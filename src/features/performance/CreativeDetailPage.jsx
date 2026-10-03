@@ -5,7 +5,7 @@ import PageHeader from '../../components/ui/PageHeader'
 export default function CreativeDetailPage() {
   const { id } = useParams()
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <Breadcrumb />
       <PageHeader
         title="Creative Detail"

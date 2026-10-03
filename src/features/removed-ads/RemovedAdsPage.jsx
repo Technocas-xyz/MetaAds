@@ -30,7 +30,6 @@ function NativeSelect({ value, onChange, children, placeholder }) {
         'px-3 pr-7 text-sm shadow-sm appearance-none cursor-pointer',
         'focus:outline-none focus:ring-2 focus:ring-primary-500 hover:bg-gray-50',
         !value && 'text-text-tertiary', value && 'text-text-primary',
-        'bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748B\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'m6 9 6 6 6-6\'/%3E%3C/svg%3E")] bg-[right_0.5rem_center] bg-no-repeat'
       )}
     >
       <option value="">{placeholder}</option>
@@ -48,11 +47,11 @@ function RemovedAdCard({ ad }) {
   return (
     <div className="flex flex-col overflow-hidden rounded-lg border border-danger-200 bg-white text-[11px] shadow-sm">
       <div className="flex items-center gap-1.5 border-b border-danger-100 bg-danger-50 px-3 py-1.5">
-        <span className="rounded bg-danger-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Removed</span>
-        <span className="text-[10px] text-danger-700">
+        <span className="rounded bg-danger-600 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">Removed</span>
+        <span className="text-[11px] text-danger-700">
           {ad.removed_at ? new Date(ad.removed_at).toLocaleDateString() : '—'}
         </span>
-        <span className="ml-auto text-[10px] font-medium text-text-secondary">Ran {ad.days_running}d</span>
+        <span className="ml-auto text-[11px] font-medium text-text-secondary">Ran {ad.days_running}d</span>
       </div>
 
       <div className="relative bg-gray-50">
@@ -76,15 +75,15 @@ function RemovedAdCard({ ad }) {
         ) : (
           <div className="flex h-56 flex-col items-center justify-center gap-1 text-gray-400">
             <Image size={22} />
-            <span className="text-[10px]">Image not saved — open on Meta</span>
+            <span className="text-[11px]">Image not saved — open on Meta</span>
           </div>
         )}
       </div>
 
       <div className="flex-1 space-y-1 px-3 py-2">
-        <p className="text-[10px] font-semibold text-text-secondary">{ad.competitor_name}</p>
+        <p className="text-[11px] font-semibold text-text-secondary">{ad.competitor_name}</p>
         <p className="line-clamp-2 text-xs font-medium text-text-primary">{ad.headline || '—'}</p>
-        {ad.primary_text && <p className="line-clamp-2 text-[10px] text-text-secondary">{ad.primary_text}</p>}
+        {ad.primary_text && <p className="line-clamp-2 text-[11px] text-text-secondary">{ad.primary_text}</p>}
         <div className="flex flex-wrap gap-1 pt-1">
           {ad.hook_type && <HookTypeBadge type={ad.hook_type} />}
           {ad.angle && <Badge color="purple" size="xs">{ad.angle}</Badge>}
@@ -93,14 +92,14 @@ function RemovedAdCard({ ad }) {
       </div>
 
       <div className="flex items-center justify-between border-t border-border-default px-3 py-1.5">
-        <span className="truncate text-[9px] text-text-secondary">{ad.ad_library_id ? `ID: ${ad.ad_library_id}` : ''}</span>
+        <span className="truncate text-[10px] text-text-secondary">{ad.ad_library_id ? `ID: ${ad.ad_library_id}` : ''}</span>
         <div className="flex items-center gap-1">
           {ad.ad_url && (
             <a href={ad.ad_url} target="_blank" rel="noopener noreferrer" className="rounded p-1 text-text-secondary hover:text-blue-600" title="View on Meta">
               <ExternalLink size={12} />
             </a>
           )}
-          <Link to={`/ads/${ad.id}`} className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium text-primary-600 hover:bg-primary-50">
+          <Link to={`/ads/${ad.id}`} className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-primary-600 hover:bg-primary-50">
             <Eye size={12} /> View
           </Link>
         </div>
@@ -181,7 +180,7 @@ export default function RemovedAdsPage() {
       />
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KPICard title="Total Removed" value={stats?.total_removed || 0} icon={Trash2} iconBg="bg-red-50" iconColor="text-red-600" />
         <KPICard title="Removed (7d)" value={stats?.removed_7d || 0} icon={Calendar} iconBg="bg-orange-50" iconColor="text-orange-600" />
         <KPICard title="Removed (30d)" value={stats?.removed_30d || 0} icon={Calendar} iconBg="bg-amber-50" iconColor="text-amber-600" />
@@ -242,7 +241,7 @@ export default function RemovedAdsPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="stagger grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {ads.map((ad) => <RemovedAdCard key={ad.id} ad={ad} />)}
             </div>
 

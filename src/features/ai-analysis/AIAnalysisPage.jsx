@@ -259,7 +259,7 @@ function AnglesDonutCard({ data, isLoading }) {
               <span className="text-lg font-bold leading-none text-text-primary">
                 {(total / 1000).toFixed(1)}k
               </span>
-              <span className="mt-0.5 text-[10px] text-text-secondary">Total Ads</span>
+              <span className="mt-0.5 text-[11px] text-text-secondary">Total Ads</span>
             </div>
           </div>
 
@@ -332,7 +332,7 @@ function ConfidenceBarCard({ data, isLoading }) {
             ].map(({ label, count, pct, color }) => (
               <div key={label} className="text-center">
                 <p className={cn('text-base font-bold', color)}>{pct}%</p>
-                <p className="text-[10px] text-text-tertiary">{label} ({count})</p>
+                <p className="text-[11px] text-text-tertiary">{label} ({count})</p>
               </div>
             ))}
           </div>
@@ -382,7 +382,7 @@ function MobileAdCard({ ad }) {
             {ad.hook_type && <HookTypeBadge type={ad.hook_type} />}
             <ConfidenceBadge score={ad.confidence_score} />
           </div>
-          <div className="mt-2 flex items-center gap-2 text-[10px] text-text-tertiary">
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-text-tertiary">
             <span className={cn('h-1.5 w-1.5 rounded-full', PLATFORM_DOT[ad.platform] ?? 'bg-gray-400')} />
             <span>{ad.platform}</span>
             <span>·</span>
@@ -474,7 +474,7 @@ function WinningAdsTable({ data, isLoading }) {
                     <td className="px-4 py-3.5">
                       <p className="max-w-[120px] truncate text-sm font-medium text-text-primary">{ad.competitor?.name}</p>
                       <div className="mt-0.5 flex items-center gap-1">
-                        <Badge color={TIER_COLOR[ad.competitor?.tier] ?? 'gray'} className="text-[10px]">
+                        <Badge color={TIER_COLOR[ad.competitor?.tier] ?? 'gray'} className="text-[11px]">
                           T{ad.competitor?.tier}
                         </Badge>
                         <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', PLATFORM_DOT[ad.platform] ?? 'bg-gray-400')} title={ad.platform} />
@@ -643,13 +643,13 @@ export default function AIAnalysisPage() {
         {sumLoading
           ? Array.from({ length: 5 }).map((_, i) => <KPIShimmer key={i} />)
           : kpis.map((kpi) => (
-              <div key={kpi.title} className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+              <div key={kpi.title} className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-text-secondary">
+                    <p className="text-xs font-medium text-text-secondary">
                       {kpi.isEst ? <EstLabel>{kpi.title}</EstLabel> : kpi.title}
                     </p>
-                    <p className="mt-2 text-3xl font-bold tracking-tight text-text-primary">
+                    <p className="mt-0.5 text-2xl font-semibold leading-tight tracking-tight tabular-nums text-text-primary">
                       {kpi.value}
                     </p>
                     {kpi.trend !== undefined && (

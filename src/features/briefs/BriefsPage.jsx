@@ -20,12 +20,12 @@ function BriefCard({ brief, onClick }) {
   const date   = new Date(brief.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
   return (
-    <div className="flex flex-col rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+    <div className="flex flex-col rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
       <div className="flex items-start justify-between gap-2">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50">
           <FileText size={18} className="text-primary-600" />
         </div>
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.cls}`}>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.cls}`}>
           {status.label}
         </span>
       </div>
@@ -66,7 +66,7 @@ export default function BriefsPage() {
   const briefs = Array.isArray(data) ? data : (data?.data ?? [])
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <Breadcrumb />
 
       <div className="flex flex-wrap items-start justify-between gap-4">

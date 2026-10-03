@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import Sidebar from './Sidebar'
 import Topbar from './TopBar'
@@ -6,11 +6,12 @@ import { cn } from '../../lib/utils'
 import useUIStore from '../../store/useUIStore'
 
 // Width constants — keep in sync with Sidebar.jsx
-const W_EXPANDED  = 'lg:pl-60'      // 240px
-const W_COLLAPSED = 'lg:pl-[72px]'  // 72px
+const W_EXPANDED  = 'lg:pl-56'
+const W_COLLAPSED = 'lg:pl-14'
 
 export default function AppShell({ children }) {
   const { sidebarOpen, sidebarCollapsed, closeSidebar } = useUIStore()
+  const { pathname } = useLocation()
 
   return (
     <div className="min-h-screen bg-bg-app">
@@ -47,7 +48,7 @@ export default function AppShell({ children }) {
           {/* Slide-over panel */}
           <Dialog.Content
             className={cn(
-              'fixed inset-y-0 left-0 z-50 w-60 lg:hidden',
+              'fixed inset-y-0 left-0 z-50 w-64 lg:hidden',
               'data-[state=open]:animate-in data-[state=open]:slide-in-from-left',
               'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left',
               'duration-200'
@@ -63,13 +64,17 @@ export default function AppShell({ children }) {
       {/* ── Content column — shifts with sidebar state ── */}
       <div
         className={cn(
-          'flex min-h-screen flex-col transition-all duration-200',
+          'flex min-h-screen flex-col transition-[padding] duration-200',
           sidebarCollapsed ? W_COLLAPSED : W_EXPANDED
         )}
       >
         <Topbar />
-        <main id="main-content" className="flex-1 p-4 sm:p-6 lg:p-8" tabIndex={-1} aria-live="polite" aria-atomic="false">
-          {children ?? <Outlet />}
+        <main id="main-content" className="min-w-0 flex-1 overflow-x-clip px-4 py-5 outline-none sm:px-6" tabIndex={-1}>
+          {/* Keyed on the route so each page fades in; capped width keeps
+              lines readable on very wide monitors. */}
+          <div key={pathname} className="mx-auto w-full max-w-[1600px] animate-page-in">
+            {children ?? <Outlet />}
+          </div>
         </main>
       </div>
 

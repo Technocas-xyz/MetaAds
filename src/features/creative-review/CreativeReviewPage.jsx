@@ -335,7 +335,7 @@ function AISuggestionCard({ item }) {
         <div className="flex items-start justify-between gap-2">
           <p className="text-xs font-semibold leading-snug text-text-primary">{item.title}</p>
           <div className="flex flex-shrink-0 items-center gap-1.5">
-            <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 whitespace-nowrap', meta.pill)}>
+            <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 whitespace-nowrap', meta.pill)}>
               {meta.label}
             </span>
             <img src={item.thumb} alt="" className="h-8 w-8 flex-shrink-0 rounded object-cover" />
@@ -383,7 +383,7 @@ function BottomActionBar() {
     <div className={cn(
       'fixed inset-x-0 bottom-0 z-20 border-t border-border-default bg-white/95 shadow-lg backdrop-blur-sm',
       'transition-all duration-200',
-      sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-60',
+      sidebarCollapsed ? 'lg:pl-14' : 'lg:pl-56',
     )}>
       <div className="flex flex-wrap items-end justify-end gap-3 px-5 py-3">
         {actions.map(({ variant, icon, label, sub, cls, onClick }) => (
@@ -397,7 +397,7 @@ function BottomActionBar() {
             >
               {label}
             </Button>
-            <span className="whitespace-nowrap text-[10px] text-text-tertiary">{sub}</span>
+            <span className="whitespace-nowrap text-[11px] text-text-tertiary">{sub}</span>
           </div>
         ))}
       </div>
@@ -453,7 +453,7 @@ export default function CreativeReviewPage() {
                     style={{ width: 72 }}>
                     <img src={v.img} alt={v.label} className="w-full object-cover" style={{ aspectRatio: '4/5' }} />
                   </div>
-                  <span className="text-[10px] font-medium text-text-secondary">{v.label}</span>
+                  <span className="text-[11px] font-medium text-text-secondary">{v.label}</span>
                 </div>
               ))}
             </div>

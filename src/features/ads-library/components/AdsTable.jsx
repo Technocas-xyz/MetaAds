@@ -30,7 +30,7 @@ function RowSkeleton() {
   return (
     <tr className="border-b border-gray-50">
       {[32, 80, 140, 160, 90, 80, 72, 60, 60, 72, 80, 40].map((w, i) => (
-        <td key={i} className="px-4 py-4">
+        <td key={i} className="px-4 py-2.5">
           <div className="h-3.5 animate-pulse rounded bg-gray-200" style={{ width: w }} />
         </td>
       ))}
@@ -110,11 +110,11 @@ function Thumbnail({ ad, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="relative h-20 w-16 flex-shrink-0 overflow-hidden rounded-md border border-border-default bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+      className="relative h-14 w-12 flex-shrink-0 overflow-hidden rounded-md border border-border-default bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
     >
       <img
         src={ad.media_url}
-        alt={ad.headline}
+        alt=""
         className="h-full w-full object-cover"
         loading="lazy"
       />
@@ -140,7 +140,7 @@ function TableRow({ ad, selected, onSelect, onPreview, expandedId, onToggleExpan
         )}
       >
         {/* Checkbox */}
-        <td className="w-10 px-4 py-4" onClick={(e) => e.stopPropagation()}>
+        <td className="w-10 px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={selected}
@@ -150,12 +150,12 @@ function TableRow({ ad, selected, onSelect, onPreview, expandedId, onToggleExpan
         </td>
 
         {/* Preview thumbnail */}
-        <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
           <Thumbnail ad={ad} onClick={() => onPreview(ad)} />
         </td>
 
         {/* Competitor */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span
               className={cn('h-2 w-2 flex-shrink-0 rounded-full', PLATFORM_DOT[ad.platform] ?? 'bg-gray-400')}
@@ -164,36 +164,36 @@ function TableRow({ ad, selected, onSelect, onPreview, expandedId, onToggleExpan
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-text-primary">{ad.competitor.name}</p>
               <div className="mt-0.5 flex items-center gap-1">
-                <Badge color={TIER_COLOR[ad.competitor.tier] ?? 'gray'} className="text-[10px]">
+                <Badge color={TIER_COLOR[ad.competitor.tier] ?? 'gray'} className="text-[11px]">
                   T{ad.competitor.tier}
                 </Badge>
-                <span className="text-[10px] text-text-tertiary">{ad.competitor.region}</span>
+                <span className="text-[11px] text-text-tertiary">{ad.competitor.region}</span>
               </div>
             </div>
           </div>
         </td>
 
         {/* Headline / Copy */}
-        <td className="max-w-[220px] px-4 py-4">
+        <td className="max-w-[220px] px-4 py-2.5">
           <p className="text-sm font-medium leading-snug text-text-primary line-clamp-1">{ad.headline}</p>
           <p className="mt-0.5 text-xs leading-snug text-text-secondary line-clamp-2">{ad.primary_text}</p>
         </td>
 
         {/* Hook Type */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <HookTypeBadge type={ad.hook_type} />
         </td>
 
         {/* Angle */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <p className="text-sm text-text-primary">{ad.angle}</p>
           {ad.angle_detail && (
-            <p className="text-xs text-text-tertiary">{ad.angle_detail}</p>
+            <p className="line-clamp-2 max-w-[220px] text-xs text-text-tertiary" title={ad.angle_detail}>{ad.angle_detail}</p>
           )}
         </td>
 
         {/* Offer */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           {ad.offer_type
             ? <Badge color="indigo">{ad.offer_type}</Badge>
             : <span className="text-sm text-text-tertiary">—</span>
@@ -201,46 +201,46 @@ function TableRow({ ad, selected, onSelect, onPreview, expandedId, onToggleExpan
         </td>
 
         {/* Format */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           {ad.is_video ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-blue-200">
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-200">
               <Play size={9} className="fill-blue-600" /> Video
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-200">
+            <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600 ring-1 ring-gray-200">
               Image
             </span>
           )}
         </td>
 
         {/* Confidence */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <ConfidenceBadge score={ad.confidence_score} />
         </td>
 
         {/* Variants — hidden on md */}
-        <td className="hidden px-4 py-4 lg:table-cell">
+        <td className="hidden px-4 py-2.5 lg:table-cell">
           <span className="text-sm text-text-primary">{ad.variants}</span>
         </td>
 
         {/* Running Since — hidden on md */}
-        <td className="hidden px-4 py-4 lg:table-cell">
+        <td className="hidden px-4 py-2.5 lg:table-cell">
           <p className="text-sm font-medium text-text-primary">{ad.running_since_days}d</p>
           <p className="text-xs text-text-tertiary">{ad.running_since_date}</p>
         </td>
 
         {/* Est. Spend — hidden on md */}
-        <td className="hidden px-4 py-4 lg:table-cell">
+        <td className="hidden px-4 py-2.5 lg:table-cell">
           <EstSpend daysRunning={ad.running_since_days} />
         </td>
 
         {/* Captured At */}
-        <td className="px-4 py-4">
+        <td className="px-4 py-2.5">
           <p className="whitespace-nowrap text-xs text-text-primary">{fmtDate(ad.captured_at)}</p>
         </td>
 
         {/* Actions */}
-        <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-end gap-1">
             <button
               onClick={() => onPreview(ad)}
@@ -328,17 +328,17 @@ function MobileCard({ ad, selected, onSelect, onPreview }) {
             <ConfidenceBadge score={ad.confidence_score} />
             {ad.offer_type && <Badge color="indigo">{ad.offer_type}</Badge>}
             {ad.is_video ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-blue-200">
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-200">
                 <Play size={9} className="fill-blue-600" /> Video
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-200">
+              <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600 ring-1 ring-gray-200">
                 Image
               </span>
             )}
           </div>
 
-          <div className="mt-2 flex items-center gap-3 text-[10px] text-text-tertiary">
+          <div className="mt-2 flex items-center gap-3 text-[11px] text-text-tertiary">
             <span className="flex items-center gap-1">
               <span className={cn('h-1.5 w-1.5 rounded-full', PLATFORM_DOT[ad.platform] ?? 'bg-gray-400')} />
               {ad.platform}

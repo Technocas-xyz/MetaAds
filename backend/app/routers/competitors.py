@@ -44,10 +44,10 @@ async def _compute_stats_for_competitor(
     )
     existing = (await db.execute(existing_stmt)).scalar() or 0
 
-    # Removed = flagged
+    # Removed = taken down by the advertiser (set by the scraper)
     removed_stmt = select(func.count(Ad.id)).where(
         Ad.competitor_id == competitor_id,
-        Ad.status == "flagged",
+        Ad.status == "removed",
     )
     removed = (await db.execute(removed_stmt)).scalar() or 0
 
@@ -157,7 +157,7 @@ async def get_competitors_summary(
     existing = (await db.execute(existing_stmt)).scalar() or 0
 
     # Removed
-    removed_stmt = select(func.count(Ad.id)).where(Ad.status == "flagged")
+    removed_stmt = select(func.count(Ad.id)).where(Ad.status == "removed")
     removed = (await db.execute(removed_stmt)).scalar() or 0
 
     # Running 7+ days

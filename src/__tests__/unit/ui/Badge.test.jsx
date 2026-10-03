@@ -32,7 +32,7 @@ describe('Badge', () => {
 
   it('renders xs size', () => {
     const { container } = render(<Badge size="xs">XS</Badge>)
-    expect(container.querySelector('span').className).toMatch(/text-\[10px\]/)
+    expect(container.querySelector('span').className).toMatch(/text-\[11px\]/)
   })
 
   it('renders md size', () => {

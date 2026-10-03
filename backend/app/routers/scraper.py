@@ -47,9 +47,10 @@ async def _compute_scraper_stats(db: AsyncSession, competitor_id: UUID) -> dict:
     now = datetime.now(timezone.utc)
     today = now.date()
 
-    # Total ads (ALL ads for this competitor, matching what the list shows)
+    # Running ads only — removed ads are listed separately on /removed-ads
     total_stmt = select(func.count(Ad.id)).where(
         Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
     )
     total_active = (await db.execute(total_stmt)).scalar() or 0
 
@@ -57,6 +58,7 @@ async def _compute_scraper_stats(db: AsyncSession, competitor_id: UUID) -> dict:
     seven_days_ago = today - timedelta(days=7)
     new_7d_stmt = select(func.count(Ad.id)).where(
         Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
         Ad.active_since.isnot(None),
         Ad.active_since >= seven_days_ago,
     )
@@ -65,6 +67,7 @@ async def _compute_scraper_stats(db: AsyncSession, competitor_id: UUID) -> dict:
     # Long-running (3+ months) — days_running >= 90
     long_running_stmt = select(func.count(Ad.id)).where(
         Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
         Ad.days_running >= 90,
     )
     long_running_3mo = (await db.execute(long_running_stmt)).scalar() or 0
@@ -72,12 +75,14 @@ async def _compute_scraper_stats(db: AsyncSession, competitor_id: UUID) -> dict:
     # Oldest ad — max(days_running)
     oldest_stmt = select(func.max(Ad.days_running)).where(
         Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
     )
     oldest_ad_days = (await db.execute(oldest_stmt)).scalar() or 0
 
     # Average duration — avg(days_running) where active_since is set
     avg_stmt = select(func.avg(Ad.days_running)).where(
         Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
         Ad.active_since.isnot(None),
     )
     avg_duration_days = (await db.execute(avg_stmt)).scalar() or 0

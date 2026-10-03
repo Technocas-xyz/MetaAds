@@ -43,7 +43,8 @@ const Button = forwardRef(function Button(
 
   const classes = cn(
     'inline-flex items-center justify-center rounded-btn font-medium',
-    'transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
+    'transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:scale-[0.97]',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
     'disabled:cursor-not-allowed disabled:opacity-60',
     VARIANTS[variant] ?? VARIANTS.primary,
     SIZES[size] ?? SIZES.md,

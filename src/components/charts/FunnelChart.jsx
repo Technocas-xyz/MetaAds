@@ -50,7 +50,7 @@ function FunnelStage({ stage, isLast, maxWidth = 100 }) {
       <div className="mt-1.5 flex w-full items-center justify-center gap-2">
         <span className="text-xs font-medium text-text-primary">{stage.label}</span>
         {stage.secondary && (
-          <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+          <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-text-secondary">
             {stage.secondary}
           </span>
         )}
@@ -127,14 +127,14 @@ export default function FunnelChart({
                     </span>
                     <span className="mt-0.5 text-[11px] font-medium text-text-primary">{stage.label}</span>
                     {stage.secondary && (
-                      <span className="text-[10px] text-text-tertiary">{stage.secondary}</span>
+                      <span className="text-[11px] text-text-tertiary">{stage.secondary}</span>
                     )}
                   </div>
 
                   {/* Drop-off arrow */}
                   {!isLast && (
                     <div className="flex flex-col items-center px-1">
-                      <span className="text-[10px] text-text-tertiary">
+                      <span className="text-[11px] text-text-tertiary">
                         {dropOff != null ? `-${dropOff}%` : ''}
                       </span>
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">

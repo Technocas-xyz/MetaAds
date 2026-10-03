@@ -106,7 +106,8 @@ def _build_winning_ad(ad: Ad, rank: int) -> WinningAdResponse:
         cta=ad.cta,
         ad_url=ad.ad_url,
         landing_url=ad.landing_url,
-        media_url=ad.media_url,
+        # Stored copy first: Meta CDN links expire within days.
+        media_url=ad.screenshot_url or ad.media_url,
         is_video=ad.is_video,
         variants=ad.variants,
         running_since_days=days,

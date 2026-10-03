@@ -122,7 +122,7 @@ export default function DonutChartCard({
                   </span>
                 )}
                 {centerSub && (
-                  <span className="text-[10px] text-text-tertiary">{centerSub}</span>
+                  <span className="text-[11px] text-text-tertiary">{centerSub}</span>
                 )}
               </div>
             )}

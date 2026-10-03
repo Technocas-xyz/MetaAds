@@ -63,7 +63,7 @@ function Card({ title, subtitle, headerRight, children, className }) {
 function InfoRow({ label, value, mono = false, colSpan = false }) {
   return (
     <div className={cn(colSpan && 'col-span-2')}>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">{label}</p>
       <div className={cn('mt-0.5 text-sm text-text-primary break-all', mono && 'font-mono text-xs')}>{value ?? '—'}</div>
     </div>
   )
@@ -74,7 +74,7 @@ function RawField({ label, value, multiline = false }) {
   if (!value) return null
   return (
     <div>
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">{label}</p>
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">{label}</p>
       <p className={cn('text-sm text-text-primary', multiline ? 'whitespace-pre-wrap leading-relaxed' : 'leading-snug')}>
         {value}
       </p>
@@ -131,7 +131,7 @@ function FormLabel({ label, counter }) {
   return (
     <div className="mb-1 flex items-center justify-between">
       <label className="text-xs font-medium text-text-primary">{label}</label>
-      {counter && <span className="text-[10px] text-text-tertiary">{counter}</span>}
+      {counter && <span className="text-[11px] text-text-tertiary">{counter}</span>}
     </div>
   )
 }
@@ -158,7 +158,7 @@ function ActionBtn({ variant, icon: Icon, subtitle, children, loading, disabled,
         {children}
       </Button>
       {subtitle && (
-        <span className="whitespace-nowrap text-[10px] text-text-tertiary">{subtitle}</span>
+        <span className="whitespace-nowrap text-[11px] text-text-tertiary">{subtitle}</span>
       )}
     </div>
   )
@@ -171,7 +171,7 @@ function StickyActionBar({ onSkip, onRerun, onMarkLowConf, onSaveNext, onApprove
     <div className={cn(
       'fixed inset-x-0 bottom-0 z-30 border-t border-border-default bg-white/95 shadow-lg backdrop-blur-sm',
       'transition-all duration-200',
-      sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-60'
+      sidebarCollapsed ? 'lg:pl-14' : 'lg:pl-56'
     )}>
       <div className="flex flex-wrap items-end justify-end gap-3 px-5 py-3 sm:flex-nowrap">
         <ActionBtn variant="ghost" icon={SkipForward} subtitle="Not enough info" onClick={onSkip}>
@@ -496,7 +496,7 @@ export default function ManualReviewPage() {
                 if (!text) return null
                 return (
                   <div key={key}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">{label}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">{label}</p>
                     <p className="mt-0.5 text-sm italic leading-relaxed text-text-secondary">{text}</p>
                   </div>
                 )

@@ -33,15 +33,15 @@ function KPIShimmer() {
 
 function StatCard({ title, value, pct, icon: Icon, iconBg, iconColor, noteColor }) {
   return (
-    <div className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+    <div className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-text-secondary">{title}</p>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-text-primary">{value}</p>
+          <p className="text-xs font-medium text-text-secondary">{title}</p>
+          <p className="mt-0.5 text-2xl font-semibold leading-tight tracking-tight tabular-nums text-text-primary">{value}</p>
           <p className={`mt-1 text-xs font-medium ${noteColor}`}>{pct}% of queue</p>
         </div>
-        <div className={`flex-shrink-0 rounded-xl p-2.5 ${iconBg}`}>
-          <Icon size={22} className={iconColor} />
+        <div className={`flex-shrink-0 rounded-lg p-2 ${iconBg}`}>
+          <Icon size={18} className={iconColor} />
         </div>
       </div>
     </div>
@@ -68,7 +68,7 @@ export default function ReviewQueuePage() {
   }, [allItems, statusFilter, reasonFilter])
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <Breadcrumb />
 
       <PageHeader
@@ -97,7 +97,7 @@ export default function ReviewQueuePage() {
       />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-5">
         {sumLoading
           ? Array.from({ length: 5 }).map((_, i) => <KPIShimmer key={i} />)
           : (

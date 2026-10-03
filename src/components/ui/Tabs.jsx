@@ -51,7 +51,7 @@ export function Tabs({
               <span
                 className={cn(
                   'inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5',
-                  'text-[10px] font-semibold',
+                  'text-[11px] font-semibold',
                   'bg-gray-100 text-gray-600',
                   'data-[state=active]:bg-primary-100 data-[state=active]:text-primary-700'
                 )}

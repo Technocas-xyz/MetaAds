@@ -82,7 +82,7 @@ export default function CompetitorKPIs({ summary, isLoading }) {
   ]
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="stagger grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {cards.map((card) => (
         <KPICard key={card.title} {...card} />
       ))}

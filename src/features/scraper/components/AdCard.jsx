@@ -44,18 +44,18 @@ export default function AdCard({ ad, onAnalyze }) {
         {isNew && <Badge color="green" size="xs">NEW</Badge>}
         {isLongRunning && <Badge color="purple" size="xs">90d+</Badge>}
         {ad.has_multiple_versions && <Badge color="blue" size="xs">MULTI</Badge>}
-        <span className="ml-auto text-[10px] text-text-secondary">
+        <span className="ml-auto text-[11px] text-text-secondary">
           {ad.days_running > 0 ? `${ad.days_running}d` : '—'}
         </span>
       </div>
 
       {/* Advertiser */}
       <div className="flex items-center gap-1.5 px-3 py-1">
-        <span className="truncate text-[10px] font-semibold text-text-primary">
+        <span className="truncate text-[11px] font-semibold text-text-primary">
           {ad.advertiser_name || 'Sponsored'}
         </span>
         {ad.domain && (
-          <span className="ml-auto flex items-center gap-0.5 text-[9px] text-text-secondary">
+          <span className="ml-auto flex items-center gap-0.5 text-[10px] text-text-secondary">
             <Globe size={8} />
             {ad.domain}
           </span>
@@ -101,7 +101,7 @@ export default function AdCard({ ad, onAnalyze }) {
       {/* CTA row */}
       {ad.cta && (
         <div className="flex items-center justify-between border-t border-border-default px-3 py-1">
-          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold">
+          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold">
             {ad.cta}
           </span>
         </div>
@@ -122,10 +122,10 @@ export default function AdCard({ ad, onAnalyze }) {
       <div className="mt-auto flex items-center justify-between border-t border-border-default px-3 py-1.5">
         <div className="min-w-0">
           {ad.ad_library_id && (
-            <p className="truncate text-[9px] text-text-secondary">ID: {ad.ad_library_id}</p>
+            <p className="truncate text-[10px] text-text-secondary">ID: {ad.ad_library_id}</p>
           )}
           <div className="flex items-center gap-2">
-            <p className="text-[9px] text-text-secondary">{ad.start_date}</p>
+            <p className="text-[10px] text-text-secondary">{ad.start_date}</p>
             {ad.days_running > 0 && <EstSpend daysRunning={ad.days_running} compact />}
           </div>
         </div>
