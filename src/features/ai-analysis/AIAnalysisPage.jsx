@@ -375,7 +375,7 @@ function MobileAdCard({ ad }) {
               <p className="text-xs text-text-secondary">{ad.competitor?.name}</p>
             </div>
             <span className="shrink-0 text-xs font-bold text-success-600">
-              {ad.est_roas}x ROAS
+              {ad.running_since_days}d running
             </span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -386,7 +386,7 @@ function MobileAdCard({ ad }) {
             <span className={cn('h-1.5 w-1.5 rounded-full', PLATFORM_DOT[ad.platform] ?? 'bg-gray-400')} />
             <span>{ad.platform}</span>
             <span>·</span>
-            <span>{ad.est_engagement}% eng.</span>
+            <span>since {ad.running_since_date}</span>
           </div>
         </div>
       </div>
@@ -428,7 +428,7 @@ function WinningAdsTable({ data, isLoading }) {
 
   return (
     <Card
-      title="Top Winning Ads"
+      title="Winning Ads — active for more than 30 days"
       rightSlot={
         <Link to="/ads" className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline">
           View All <ArrowRight size={12} />
@@ -446,10 +446,9 @@ function WinningAdsTable({ data, isLoading }) {
                 { label: 'Competitor',   cls: '' },
                 { label: 'Hook / Angle', cls: '' },
                 { label: 'Offer',        cls: '' },
-                { label: '',             cls: '', est: 'Est. ROAS' },
-                { label: '',             cls: '', est: 'Engagement' },
-                { label: 'Confidence',   cls: '' },
-                { label: 'First Seen',   cls: 'hidden lg:table-cell' },
+                { label: 'Days Running', cls: '' },
+                { label: 'Running Since', cls: 'hidden lg:table-cell' },
+                { label: 'AI Confidence', cls: '' },
                 { label: '',             cls: 'text-right' },
               ].map((col, i) => (
                 <th key={i} className={cn('px-4 py-3 text-left text-xs font-medium text-text-secondary whitespace-nowrap', col.cls)}>
@@ -491,16 +490,15 @@ function WinningAdsTable({ data, isLoading }) {
                       }
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="text-sm font-semibold text-success-600">{ad.est_roas}x</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="text-sm font-medium text-text-primary">{ad.est_engagement}%</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <ConfidenceBadge score={ad.confidence_score} />
+                      <span className="text-sm font-semibold text-success-600">{ad.running_since_days}d</span>
                     </td>
                     <td className="hidden px-4 py-3.5 lg:table-cell">
-                      <span className="text-xs text-text-secondary">{fmtDate(ad.captured_at)}</span>
+                      <span className="text-xs text-text-secondary">{ad.running_since_date}</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      {ad.analysis || ad.hook_type
+                        ? <ConfidenceBadge score={ad.confidence_score} />
+                        : <span className="text-xs text-text-tertiary">Not analyzed</span>}
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       <Link
@@ -566,8 +564,7 @@ function buildKPIs(s) {
       icon:      Trophy,
       iconBg:    'bg-success-50',
       iconColor: 'text-success-600',
-      trend:     s.winning_ads_trend,
-      trendUp:   true,
+      note:      'Active 30+ days',
     },
     {
       title:     'Avg Confidence Score',
@@ -652,15 +649,16 @@ export default function AIAnalysisPage() {
                     <p className="mt-0.5 text-2xl font-semibold leading-tight tracking-tight tabular-nums text-text-primary">
                       {kpi.value}
                     </p>
-                    {kpi.trend !== undefined && (
-                      <div className={cn('mt-2 flex items-center gap-1 text-xs font-medium', kpi.trendUp ? 'text-success-600' : 'text-danger-600')}>
+                    {!!kpi.trend && (
+                      <div className={cn('mt-1 flex items-center gap-1 text-xs font-medium', kpi.trendUp ? 'text-success-600' : 'text-danger-600')}>
                         {kpi.trendUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                        <span>{kpi.trendUp ? '↑' : '↓'} {Math.abs(kpi.trend)}% vs last 7 days</span>
+                        <span>{Math.abs(kpi.trend)}% vs last 7 days</span>
                       </div>
                     )}
+                    {kpi.note && <p className="mt-0.5 text-xs text-text-tertiary">{kpi.note}</p>}
                   </div>
-                  <div className={cn('flex-shrink-0 rounded-xl p-2.5', kpi.iconBg)}>
-                    <kpi.icon size={22} className={kpi.iconColor} />
+                  <div className={cn('flex-shrink-0 rounded-lg p-2', kpi.iconBg)}>
+                    <kpi.icon size={18} className={kpi.iconColor} />
                   </div>
                 </div>
               </div>

@@ -388,7 +388,7 @@ const COLUMNS = [
   { label: 'Removed Ads',        cls: 'hidden lg:table-cell' },
   { label: 'Avg Duration',       cls: '' },
   { label: 'Running 7+ Days',    cls: '' },
-  { label: 'Winning Ads',        cls: '' },
+  { label: 'Winning (30d+)',     cls: '' },
   { label: 'Variants',           cls: 'hidden lg:table-cell' },
   { label: 'Last Activity',      cls: '' },
   { label: '',                   cls: '' },

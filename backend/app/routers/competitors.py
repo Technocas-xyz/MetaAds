@@ -21,6 +21,8 @@ from app.schemas.competitor import (
 )
 
 
+from app.services.winning import winning_ad_filter
+
 router = APIRouter(prefix="/competitors", tags=["competitors"])
 
 
@@ -60,14 +62,10 @@ async def _compute_stats_for_competitor(
     )
     running_7_plus = (await db.execute(running_stmt)).scalar() or 0
 
-    # Winning ads (confidence >= 85)
-    winning_stmt = (
-        select(func.count(AdAnalysis.id))
-        .join(Ad, Ad.id == AdAnalysis.ad_id)
-        .where(
-            Ad.competitor_id == competitor_id,
-            AdAnalysis.confidence_score >= 85,
-        )
+    # Winning ads: still active after more than 30 days
+    winning_stmt = select(func.count(Ad.id)).where(
+        Ad.competitor_id == competitor_id,
+        winning_ad_filter(),
     )
     winning = (await db.execute(winning_stmt)).scalar() or 0
 
@@ -168,9 +166,11 @@ async def get_competitors_summary(
     )
     running_7_plus = (await db.execute(running_stmt)).scalar() or 0
 
-    # Winning
-    winning_stmt = select(func.count(AdAnalysis.id)).where(
-        AdAnalysis.confidence_score >= 85
+    # Winning: still active after more than 30 days (competitors only)
+    winning_stmt = (
+        select(func.count(Ad.id))
+        .join(Competitor, Competitor.id == Ad.competitor_id)
+        .where(Competitor.is_own_brand == False, winning_ad_filter())  # noqa: E712
     )
     winning = (await db.execute(winning_stmt)).scalar() or 0
 

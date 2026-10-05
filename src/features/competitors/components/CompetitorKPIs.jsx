@@ -65,11 +65,11 @@ export default function CompetitorKPIs({ summary, isLoading }) {
     },
     {
       title:     'Winning Ads',
-      value:     s.winning_ads ?? 2153,
+      value:     s.winning_ads,
       icon:      Trophy,
       iconBg:    'bg-amber-50',
       iconColor: 'text-amber-600',
-      note:      `${s.winning_ads_pct ?? 24.6}% of existing`,
+      note:      `Active 30+ days · ${s.winning_ads_pct ?? 0}% of existing`,
     },
     {
       title:     'Avg Ad Duration',
