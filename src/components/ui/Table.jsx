@@ -79,7 +79,7 @@ const Table = forwardRef(function Table(
     right:  'text-right',
   }
 
-  const CELL_PAD = density === 'compact' ? 'py-2 px-3' : 'py-3.5 px-4'
+  const CELL_PAD = density === 'compact' ? 'py-2 px-3' : 'py-2.5 px-4'
   const HEAD_PAD = density === 'compact' ? 'py-2.5 px-3' : 'py-3 px-4'
 
   return (

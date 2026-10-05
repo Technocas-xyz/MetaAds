@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db, AsyncSessionLocal
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 from app.models.user import User
 from app.models.ad import Ad
 from app.models.ad_analysis import AdAnalysis
@@ -33,7 +33,7 @@ from app.schemas.scraper import (
     ScrapedAdsListResponse,
     ScrapeRunResponse,
 )
-from app.services.scraper_service import scrape_competitor
+from app.services.scraper_service import scrape_competitor, scrape_in_batch
 from app.services.analysis_service import run_analysis
 
 
@@ -47,9 +47,10 @@ async def _compute_scraper_stats(db: AsyncSession, competitor_id: UUID) -> dict:
     now = datetime.now(timezone.utc)
     today = now.date()
 
-    # Total ads (ALL ads for this competitor, matching what the list shows)
+    # Running ads only — removed ads are listed separately on /removed-ads
     total_stmt = select(func.count(Ad.id)).where(
         Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
     )
     total_active = (await db.execute(total_stmt)).scalar() or 0
 
@@ -57,6 +58,7 @@ async def _compute_scraper_stats(db: AsyncSession, competitor_id: UUID) -> dict:
     seven_days_ago = today - timedelta(days=7)
     new_7d_stmt = select(func.count(Ad.id)).where(
         Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
         Ad.active_since.isnot(None),
         Ad.active_since >= seven_days_ago,
     )
@@ -65,6 +67,7 @@ async def _compute_scraper_stats(db: AsyncSession, competitor_id: UUID) -> dict:
     # Long-running (3+ months) — days_running >= 90
     long_running_stmt = select(func.count(Ad.id)).where(
         Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
         Ad.days_running >= 90,
     )
     long_running_3mo = (await db.execute(long_running_stmt)).scalar() or 0
@@ -72,12 +75,14 @@ async def _compute_scraper_stats(db: AsyncSession, competitor_id: UUID) -> dict:
     # Oldest ad — max(days_running)
     oldest_stmt = select(func.max(Ad.days_running)).where(
         Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
     )
     oldest_ad_days = (await db.execute(oldest_stmt)).scalar() or 0
 
     # Average duration — avg(days_running) where active_since is set
     avg_stmt = select(func.avg(Ad.days_running)).where(
         Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
         Ad.active_since.isnot(None),
     )
     avg_duration_days = (await db.execute(avg_stmt)).scalar() or 0
@@ -101,7 +106,7 @@ def _ad_to_scraped_response(ad: Ad) -> ScrapedAdResponse:
 
     days_running = max(0, (now - first_seen).days)
     start_date_str = first_seen.strftime("%b %d, %Y")
-    is_active = ad.status != "flagged"
+    is_active = ad.status not in ("flagged", "removed")
 
     # Get AI analysis if available
     hook_type = None
@@ -191,6 +196,11 @@ async def get_scraper_competitor(
         raise HTTPException(status_code=404, detail="Competitor not found")
 
     stats = await _compute_scraper_stats(db, competitor_id)
+    removed_ads = (await db.execute(
+        select(func.count()).select_from(Ad).where(
+            Ad.competitor_id == competitor_id, Ad.status == "removed",
+        )
+    )).scalar() or 0
 
     # Get recent runs
     runs_stmt = (
@@ -217,6 +227,7 @@ async def get_scraper_competitor(
         long_running_3mo=stats["long_running_3mo"],
         oldest_ad_days=stats["oldest_ad_days"],
         avg_duration_days=stats["avg_duration_days"],
+        removed_ads=removed_ads,
         recent_runs=[ScrapeRunResponse.model_validate(r) for r in runs],
     )
 
@@ -226,7 +237,7 @@ async def list_competitor_ads(
     competitor_id: UUID,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    filter: Optional[str] = Query(None, description="all|active|new_7d|long_running"),
+    filter: Optional[str] = Query(None, description="all|active|new_7d|long_running (removed ads are listed by /removed-ads)"),
     sort: str = Query("-first_seen"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -238,9 +249,11 @@ async def list_competitor_ads(
         raise HTTPException(status_code=404, detail="Competitor not found")
 
     now = datetime.now(timezone.utc)
-    stmt = select(Ad).where(Ad.competitor_id == competitor_id).options(
-        selectinload(Ad.analysis)
-    )
+    # Removed ads have their own page (/removed-ads) — keep this list to ads still running.
+    stmt = select(Ad).where(
+        Ad.competitor_id == competitor_id,
+        Ad.status != "removed",
+    ).options(selectinload(Ad.analysis))
 
     # Apply filter — uses active_since (real Meta start date)
     if filter == "active":
@@ -398,6 +411,70 @@ async def list_recent_runs(
     return [ScrapeRunResponse.model_validate(r) for r in runs]
 
 
+# ─── Meta login session (admin) ───────────────────────────────────────────────
+
+@router.get("/meta-session")
+async def get_meta_session(current_user: User = Depends(get_current_user)):
+    """Whether a logged-in Meta session is stored for the scraper (no cookie values)."""
+    from app.services import meta_session_service
+    return meta_session_service.status()
+
+
+@router.post("/meta-session")
+async def save_meta_session(payload: dict, current_user: User = Depends(require_admin)):
+    """Store exported facebook.com cookies as the scraper's browser session."""
+    from app.services import meta_session_service
+    try:
+        return meta_session_service.save_cookies(payload.get("cookies"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/meta-session")
+async def delete_meta_session(current_user: User = Depends(require_admin)):
+    from app.services import meta_session_service
+    return meta_session_service.clear()
+
+
+@router.post("/meta-session/test")
+async def test_meta_session(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Open one large competitor listing with the stored session and report what Meta returns."""
+    import json as _json
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    # Pick the competitor with the most ads so pagination is actually exercised.
+    stmt = (
+        select(Competitor.page_id)
+        .join(Ad, Ad.competitor_id == Competitor.id)
+        .where(Competitor.page_id.isnot(None), Competitor.is_own_brand == False)  # noqa: E712
+        .group_by(Competitor.page_id)
+        .order_by(func.count(Ad.id).desc())
+        .limit(1)
+    )
+    page_id = (await db.execute(stmt)).scalar()
+    if not page_id:
+        raise HTTPException(status_code=400, detail="No competitor with a page ID to test against")
+
+    backend_dir = str(_Path(__file__).resolve().parents[2])
+    proc = await _asyncio.create_subprocess_exec(
+        _sys.executable, "-m", "app.scripts.check_meta_session", page_id,
+        stdout=_asyncio.subprocess.PIPE, stderr=_asyncio.subprocess.PIPE, cwd=backend_dir,
+    )
+    try:
+        stdout, _ = await _asyncio.wait_for(proc.communicate(), timeout=120)
+    except _asyncio.TimeoutError:
+        proc.kill()
+        raise HTTPException(status_code=504, detail="Session test timed out")
+    try:
+        return _json.loads(stdout.decode().strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        raise HTTPException(status_code=500, detail="Session test failed to run")
+
+
 # ─── Schedule control ─────────────────────────────────────────────────────────
 
 @router.get("/schedule/status")
@@ -429,8 +506,12 @@ _batch_progress = {"total": 0, "completed": 0, "failed": 0, "current": None}
 _scraping_competitors: set = set()  # Track in-progress scrapes to prevent duplicates
 
 
-async def _run_batch_scrape():
-    """Run scrapes for all active competitors sequentially in background."""
+async def _run_batch_scrape(skip_recent_hours: float = 0):
+    """Run scrapes for all active competitors sequentially in background.
+
+    skip_recent_hours > 0 resumes an interrupted batch: competitors with a
+    successful scrape inside that window are left alone.
+    """
     global _batch_running, _batch_progress
     _batch_running = True
 
@@ -441,6 +522,10 @@ async def _run_batch_scrape():
                 Competitor.is_own_brand == False,
             ).order_by(Competitor.name)
             competitors = (await db.execute(stmt)).scalars().all()
+
+        if skip_recent_hours > 0:
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=skip_recent_hours)
+            competitors = [c for c in competitors if not c.last_run or c.last_run < cutoff]
 
         total = len(competitors)
         _batch_progress = {"total": total, "completed": 0, "failed": 0, "current": None}
@@ -454,8 +539,9 @@ async def _run_batch_scrape():
             _batch_progress["current"] = comp.name
             scrape_all_job.current = comp.name
             try:
-                async with AsyncSessionLocal() as db:
-                    await scrape_competitor(comp.id, db, trigger="batch")
+                await scrape_in_batch(
+                    comp.id, "batch", should_abort=lambda: scrape_all_job.state.value == "stopped"
+                )
                 _batch_progress["completed"] += 1
                 scrape_all_job.completed += 1
             except Exception as e:
@@ -481,6 +567,7 @@ async def _run_batch_scrape():
 
 @router.post("/scrape-all", status_code=202)
 async def trigger_scrape_all(
+    skip_recent_hours: float = Query(0, ge=0, le=72, description="Skip competitors scraped within this many hours"),
     current_user: User = Depends(get_current_user),
 ):
     """Start scraping ALL competitors sequentially in the background."""
@@ -488,7 +575,7 @@ async def trigger_scrape_all(
         return {"status": "already_running", "job": scrape_all_job.to_dict()}
 
     scrape_all_job.reset()
-    _asyncio.create_task(_run_batch_scrape())
+    _asyncio.create_task(_run_batch_scrape(skip_recent_hours))
 
     return {
         "status": "started",

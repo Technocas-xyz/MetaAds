@@ -24,7 +24,7 @@ export default function ProgressBar({ total, completed, failed = 0, current, cla
       </div>
 
       {/* Counter */}
-      <div className="flex items-center justify-between text-[10px] text-text-secondary">
+      <div className="flex items-center justify-between text-[11px] text-text-secondary">
         <span>
           {completed} of {total} done{failed > 0 && <span className="text-danger-500"> ({failed} failed)</span>}
         </span>
@@ -33,7 +33,7 @@ export default function ProgressBar({ total, completed, failed = 0, current, cla
 
       {/* Current item */}
       {current && (
-        <p className="truncate text-[10px] text-text-tertiary">
+        <p className="truncate text-[11px] text-text-tertiary">
           Currently: {current}
         </p>
       )}

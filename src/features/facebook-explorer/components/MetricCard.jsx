@@ -30,7 +30,7 @@ export default function MetricCard({ label, value, format = 'raw', className }) 
 
   return (
     <div className={cn('rounded-lg border border-border-default bg-white p-3 text-center', className)}>
-      <p className="text-[10px] text-text-tertiary uppercase tracking-wide">{label}</p>
+      <p className="text-[11px] text-text-tertiary uppercase tracking-wide">{label}</p>
       <p className="mt-1 text-lg font-bold text-text-primary">{display}</p>
     </div>
   )

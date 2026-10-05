@@ -141,7 +141,7 @@ function AngleDonutCard({ data, total, isLoading }) {
               <span className="text-base font-bold leading-tight text-text-primary">
                 {total.toLocaleString()}
               </span>
-              <span className="text-[10px] text-text-secondary">Mentions</span>
+              <span className="text-[11px] text-text-secondary">Mentions</span>
             </div>
           </div>
           <ul className="flex-1 space-y-1.5 overflow-hidden">
@@ -375,7 +375,7 @@ function CompetitorAvatars({ competitors, extra }) {
         <div
           key={c.id}
           title={c.name}
-          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white"
+          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-white"
           style={{
             backgroundColor: AVATAR_BG[Number(c.id) % AVATAR_BG.length],
             zIndex: competitors.length - i,
@@ -386,7 +386,7 @@ function CompetitorAvatars({ competitors, extra }) {
       ))}
       {extra > 0 && (
         <div
-          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-[9px] font-bold text-gray-600"
+          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-[10px] font-bold text-gray-600"
           style={{ zIndex: 0 }}
         >
           +{extra}
@@ -467,7 +467,7 @@ function AnglesTable({ rows, total, page, pageSize, onPageChange, onPageSizeChan
                         {row.name}
                       </span>
                       {row.rank === 1 && (
-                        <span className="mt-0.5 inline-flex flex-shrink-0 items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 ring-1 ring-primary-200">
+                        <span className="mt-0.5 inline-flex flex-shrink-0 items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700 ring-1 ring-primary-200">
                           Top
                         </span>
                       )}
@@ -564,7 +564,7 @@ function AnglesTable({ rows, total, page, pageSize, onPageChange, onPageSizeChan
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-semibold text-text-primary">{row.name}</p>
                       {row.rank === 1 && (
-                        <span className="inline-flex items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 ring-1 ring-primary-200">
+                        <span className="inline-flex items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700 ring-1 ring-primary-200">
                           Top
                         </span>
                       )}
@@ -720,7 +720,7 @@ function AngleDetailDrawer({ angle, onClose }) {
                       key={label}
                       className="rounded-lg border border-border-default p-3 text-center"
                     >
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
                         {label}
                       </p>
                       <p
@@ -893,7 +893,7 @@ export default function AngleLibraryPage() {
   const donutTotal = typeDist?.reduce((s, d) => s + d.value, 0) ?? 0
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <Breadcrumb />
 
       <PageHeader
@@ -908,7 +908,7 @@ export default function AngleLibraryPage() {
       />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-5">
         {sumLoading
           ? Array.from({ length: 5 }).map((_, i) => <KPIShimmer key={i} />)
           : (
@@ -940,10 +940,10 @@ export default function AngleLibraryPage() {
               />
 
               {/* Top Performing Angle — custom */}
-              <div className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+              <div className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-text-secondary">Top Performing Angle</p>
+                    <p className="text-xs font-medium text-text-secondary">Top Performing Angle</p>
                     <p className="mt-2 text-2xl font-bold text-text-primary">
                       {summary?.top_performing_angle?.name ?? '—'}
                     </p>
@@ -954,22 +954,22 @@ export default function AngleLibraryPage() {
                       </span>
                     </p>
                   </div>
-                  <div className="flex-shrink-0 rounded-xl bg-purple-50 p-2.5">
-                    <Award size={22} className="text-purple-600" />
+                  <div className="flex-shrink-0 rounded-lg bg-purple-50 p-2">
+                    <Award size={18} className="text-purple-600" />
                   </div>
                 </div>
               </div>
 
               {/* Trending Angle — custom */}
-              <div className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+              <div className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-text-secondary">Trending Angle</p>
+                    <p className="text-xs font-medium text-text-secondary">Trending Angle</p>
                     <p className="mt-2 text-2xl font-bold text-text-primary">
                       {summary?.trending_angle?.name ?? '—'}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold text-success-700 ring-1 ring-success-200">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-[11px] font-semibold text-success-700 ring-1 ring-success-200">
                         <TrendingUp size={9} />
                         Trending
                       </span>
@@ -978,8 +978,8 @@ export default function AngleLibraryPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex-shrink-0 rounded-xl bg-success-50 p-2.5">
-                    <TrendingUp size={22} className="text-success-600" />
+                  <div className="flex-shrink-0 rounded-lg bg-success-50 p-2">
+                    <TrendingUp size={18} className="text-success-600" />
                   </div>
                 </div>
               </div>

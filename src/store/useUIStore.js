@@ -9,10 +9,13 @@ const useUIStore = create(
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleCollapse: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       closeSidebar: () => set({ sidebarOpen: false }),
+      navGroupsClosed: {},      // sidebar section id -> true when folded
+      toggleNavGroup: (id) =>
+        set((s) => ({ navGroupsClosed: { ...s.navGroupsClosed, [id]: !s.navGroupsClosed[id] } })),
     }),
     {
       name: 'ui',
-      partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }),
+      partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed, navGroupsClosed: s.navGroupsClosed }),
     }
   )
 )

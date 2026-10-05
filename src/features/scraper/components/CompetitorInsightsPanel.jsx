@@ -32,7 +32,7 @@ export default function CompetitorInsightsPanel({ competitorId }) {
       <div className="flex items-center gap-2">
         <Brain size={16} className="text-primary-600" />
         <h3 className="text-sm font-semibold text-text-primary">AI Insights</h3>
-        <span className="text-[10px] text-text-secondary">
+        <span className="text-[11px] text-text-secondary">
           ({insights.analyzed_count} of {insights.total_ads} ads analyzed)
         </span>
         {insights.limited_data && (
@@ -55,11 +55,11 @@ export default function CompetitorInsightsPanel({ competitorId }) {
             {insights.hooks.slice(0, 5).map((h) => (
               <div key={h.type} className="flex items-center justify-between">
                 <Badge color="blue" size="xs">{h.type}</Badge>
-                <span className="text-[10px] text-text-secondary">{h.count} ({h.pct}%)</span>
+                <span className="text-[11px] text-text-secondary">{h.count} ({h.pct}%)</span>
               </div>
             ))}
             {insights.hooks.length === 0 && (
-              <p className="text-[10px] text-text-secondary">No data</p>
+              <p className="text-[11px] text-text-secondary">No data</p>
             )}
           </div>
         </Card>
@@ -70,11 +70,11 @@ export default function CompetitorInsightsPanel({ competitorId }) {
             {insights.angles.slice(0, 5).map((a) => (
               <div key={a.type} className="flex items-center justify-between">
                 <Badge color="purple" size="xs">{a.type}</Badge>
-                <span className="text-[10px] text-text-secondary">{a.count} ({a.pct}%)</span>
+                <span className="text-[11px] text-text-secondary">{a.count} ({a.pct}%)</span>
               </div>
             ))}
             {insights.angles.length === 0 && (
-              <p className="text-[10px] text-text-secondary">No data</p>
+              <p className="text-[11px] text-text-secondary">No data</p>
             )}
           </div>
         </Card>
@@ -85,11 +85,11 @@ export default function CompetitorInsightsPanel({ competitorId }) {
             {insights.offers.slice(0, 5).map((o) => (
               <div key={o.type} className="flex items-center justify-between">
                 <Badge color="amber" size="xs">{o.type}</Badge>
-                <span className="text-[10px] text-text-secondary">{o.count} ({o.pct}%)</span>
+                <span className="text-[11px] text-text-secondary">{o.count} ({o.pct}%)</span>
               </div>
             ))}
             {insights.offers.length === 0 && (
-              <p className="text-[10px] text-text-secondary">No data</p>
+              <p className="text-[11px] text-text-secondary">No data</p>
             )}
           </div>
         </Card>
@@ -110,7 +110,7 @@ export default function CompetitorInsightsPanel({ competitorId }) {
                 {w.hook_type && <Badge color="blue" size="xs">{w.hook_type}</Badge>}
                 {w.angle && <Badge color="purple" size="xs">{w.angle}</Badge>}
                 {w.offer_type && w.offer_type !== 'None' && <Badge color="amber" size="xs">{w.offer_type}</Badge>}
-                <span className="ml-auto truncate text-[9px] text-text-secondary max-w-[120px]">
+                <span className="ml-auto truncate text-[10px] text-text-secondary max-w-[120px]">
                   {w.ad_library_id}
                 </span>
               </div>

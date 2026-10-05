@@ -1,9 +1,10 @@
 import { cn } from '../../lib/utils'
 
-function Shimmer({ className }) {
+function Shimmer({ className, style }) {
   return (
     <div
-      className={cn('animate-pulse rounded bg-gray-200', className)}
+      className={cn('skeleton rounded', className)}
+      style={style}
       aria-hidden="true"
     />
   )
@@ -43,7 +44,7 @@ export function SkeletonKPI({ className }) {
   return (
     <div
       className={cn(
-        'rounded-card border border-border-default bg-white p-5 shadow-card',
+        'rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card',
         className
       )}
     >

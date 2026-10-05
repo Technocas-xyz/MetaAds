@@ -14,9 +14,21 @@
     box-sizing: border-box;
   }
 
+  /* Density: the app is a data tool, so run a compact rem scale on laptop
+     widths and only open up on large monitors. Everything sized in rem
+     (spacing, type, radii) follows. */
   html {
     -webkit-text-size-adjust: 100%;
     tab-size: 4;
+    font-size: 14px;
+  }
+
+  @media (min-width: 1536px) {
+    html { font-size: 15px; }
+  }
+
+  @media (min-width: 1920px) {
+    html { font-size: 16px; }
   }
 
   body {
@@ -27,6 +39,27 @@
   /* Headings inherit color so pages can override per-context */
   h1, h2, h3, h4, h5, h6 {
     @apply text-text-primary font-semibold leading-tight;
+  }
+
+  /* Native selects: one consistent look everywhere */
+  select:not([multiple]) {
+    appearance: none;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    padding-right: 1.9rem;
+    cursor: pointer;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+
+  select:not([multiple]):hover {
+    border-color: #cbd5e1;
+  }
+
+  /* Tables and stat values line up digit by digit */
+  table {
+    font-variant-numeric: tabular-nums;
   }
 
   /* Smooth focus rings */
@@ -70,6 +103,63 @@
 
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* ── Motion utilities ──────────────────────────────────────────────────── */
+@layer utilities {
+  /* Children rise in one after another (KPI rows, card grids). */
+  .stagger > * {
+    animation: rise-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 40ms; }
+  .stagger > *:nth-child(3) { animation-delay: 80ms; }
+  .stagger > *:nth-child(4) { animation-delay: 120ms; }
+  .stagger > *:nth-child(5) { animation-delay: 160ms; }
+  .stagger > *:nth-child(6) { animation-delay: 200ms; }
+  .stagger > *:nth-child(7) { animation-delay: 240ms; }
+  .stagger > *:nth-child(n + 8) { animation-delay: 280ms; }
+
+  /* Loading placeholder with a moving highlight. */
+  .skeleton {
+    background: linear-gradient(90deg, #eef1f5 25%, #f8f9fb 37%, #eef1f5 63%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  /* Cards that are links/buttons lift slightly on hover. */
+  .lift {
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px -2px rgb(79 70 229 / 0.12), 0 2px 6px -1px rgb(0 0 0 / 0.08);
+  }
+
+  /* Dark thin scrollbar for the sidebar. */
+  .scrollbar-dark {
+    scrollbar-width: thin;
+    scrollbar-color: #334155 transparent;
+  }
+  .scrollbar-dark::-webkit-scrollbar { width: 6px; }
+  .scrollbar-dark::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+  .scrollbar-dark::-webkit-scrollbar-thumb:hover { background: #475569; }
+}
+
+/* Page scrollbar */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

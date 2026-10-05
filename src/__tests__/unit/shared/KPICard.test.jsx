@@ -33,12 +33,12 @@ describe('KPICard', () => {
   it('renders upward trend with positive styling', () => {
     render(<KPICard {...baseProps} trend={12.5} trendUp />)
     expect(screen.getByText(/12\.5%/)).toBeInTheDocument()
-    expect(screen.getByText(/12\.5%/).closest('div')).toHaveClass('text-success-600')
+    expect(screen.getByText(/12\.5%/).closest('span')).toHaveClass('text-success-600')
   })
 
   it('renders downward trend with negative styling', () => {
     render(<KPICard {...baseProps} trend={5.2} trendUp={false} />)
-    expect(screen.getByText(/5\.2%/).closest('div')).toHaveClass('text-danger-600')
+    expect(screen.getByText(/5\.2%/).closest('span')).toHaveClass('text-danger-600')
   })
 
   it('renders note text when trend is absent', () => {

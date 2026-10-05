@@ -27,7 +27,7 @@ export default function MarketOverview() {
       <div className="flex items-center gap-2">
         <Target size={18} className="text-primary-600" />
         <h2 className="text-base font-bold text-text-primary">Market Overview & Recommendation</h2>
-        <span className="text-[10px] text-text-secondary">
+        <span className="text-[11px] text-text-secondary">
           ({insights.total_analyzed} ads analyzed, {insights.winners_count} winners 30d+, {insights.long_runners_count} long-runners 90d+)
         </span>
       </div>
@@ -42,7 +42,7 @@ export default function MarketOverview() {
               <p className="text-xs text-text-primary leading-relaxed">{rec}</p>
               {insights.example_hooks?.length > 0 && (
                 <div className="mt-3">
-                  <p className="text-[10px] font-semibold text-text-secondary mb-1">Example Hook Lines:</p>
+                  <p className="text-[11px] font-semibold text-text-secondary mb-1">Example Hook Lines:</p>
                   <ul className="space-y-1">
                     {insights.example_hooks.map((h, i) => (
                       <li key={i} className="text-xs text-text-primary flex gap-1.5">
@@ -66,7 +66,7 @@ export default function MarketOverview() {
               {wp.hooks.slice(0, 4).map((h) => (
                 <div key={h.type} className="flex items-center justify-between">
                   <Badge color="blue" size="xs">{h.type}</Badge>
-                  <span className="text-[9px] text-text-secondary">{h.weighted_score}</span>
+                  <span className="text-[10px] text-text-secondary">{h.weighted_score}</span>
                 </div>
               ))}
             </div>
@@ -76,7 +76,7 @@ export default function MarketOverview() {
               {wp.angles.slice(0, 4).map((a) => (
                 <div key={a.type} className="flex items-center justify-between">
                   <Badge color="purple" size="xs">{a.type}</Badge>
-                  <span className="text-[9px] text-text-secondary">{a.weighted_score}</span>
+                  <span className="text-[10px] text-text-secondary">{a.weighted_score}</span>
                 </div>
               ))}
             </div>
@@ -86,7 +86,7 @@ export default function MarketOverview() {
               {wp.offers.slice(0, 4).map((o) => (
                 <div key={o.type} className="flex items-center justify-between">
                   <Badge color="amber" size="xs">{o.type}</Badge>
-                  <span className="text-[9px] text-text-secondary">{o.weighted_score}</span>
+                  <span className="text-[10px] text-text-secondary">{o.weighted_score}</span>
                 </div>
               ))}
             </div>
@@ -95,11 +95,11 @@ export default function MarketOverview() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-text-primary">Video</span>
-                <span className="text-[10px] font-medium">{wp.format_split.video}</span>
+                <span className="text-[11px] font-medium">{wp.format_split.video}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-text-primary">Image</span>
-                <span className="text-[10px] font-medium">{wp.format_split.image}</span>
+                <span className="text-[11px] font-medium">{wp.format_split.image}</span>
               </div>
             </div>
           </Card>

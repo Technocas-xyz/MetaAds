@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users2,
@@ -8,6 +8,7 @@ import {
   Compass,
   Gift,
   Sparkles,
+  Lightbulb,
   ClipboardCheck,
   TrendingUp,
   FileText,
@@ -22,6 +23,7 @@ import {
   Activity,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Zap,
   X,
   Radar,
@@ -32,21 +34,21 @@ import { cn } from '../../lib/utils'
 import useUIStore from '../../store/useUIStore'
 
 // ── Design tokens (sidebar-specific) ────────────────────────────────────────
-const SIDEBAR_W  = 'w-60'       // 240px
-const SIDEBAR_W_C = 'w-[72px]'  // 72px collapsed
+const SIDEBAR_W  = 'w-56'       // 224px at 16px root
+const SIDEBAR_W_C = 'w-14'      // 56px collapsed
 
 // ── Nav data ─────────────────────────────────────────────────────────────────
 const NAV_GROUPS = [
   {
     id: 'dashboard',
-    label: 'DASHBOARD',
+    label: 'Overview',
     items: [
       { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
     ],
   },
   {
     id: 'intelligence',
-    label: 'INTELLIGENCE',
+    label: 'Intelligence',
     items: [
       { label: 'Competitors',   to: '/competitors',          icon: Users2 },
       { label: 'Ad Scraper',    to: '/scraper/competitors',  icon: Radar },
@@ -64,9 +66,9 @@ const NAV_GROUPS = [
   },
   {
     id: 'workflows',
-    label: 'WORKFLOWS',
+    label: 'Workflows',
     items: [
-      { label: 'AI Creative Recommendations', to: '/recommendations', icon: Sparkles },
+      { label: 'Creative Recommendations', to: '/recommendations', icon: Lightbulb },
       { label: 'Creative Review & QA',        to: '/creative-review', icon: ClipboardCheck },
       { label: 'Performance Intelligence',    to: '/performance',     icon: TrendingUp },
       { label: 'Creative Briefs',             to: '/briefs',          icon: FileText },
@@ -75,7 +77,7 @@ const NAV_GROUPS = [
   },
   {
     id: 'learning',
-    label: 'LEARNING & OPTIMIZATION',
+    label: 'Learning',
     items: [
       { label: 'Learning Loop',       to: '/learning-loop',       icon: RefreshCcw },
       { label: 'Insight Log',         to: '/insight-log',         icon: ScrollText },
@@ -84,15 +86,15 @@ const NAV_GROUPS = [
   },
   {
     id: 'review',
-    label: 'REVIEW & QA',
+    label: 'Review',
     items: [
-      { label: 'Review Queue',   to: '/review',         icon: Inbox,         badge: 15, badgeColor: 'bg-danger-500' },
-      { label: 'Low Confidence', to: '/low-confidence', icon: AlertTriangle, badge: 8,  badgeColor: 'bg-warning-500' },
+      { label: 'Review Queue',   to: '/review',         icon: Inbox },
+      { label: 'Low Confidence', to: '/low-confidence', icon: AlertTriangle },
     ],
   },
   {
     id: 'system',
-    label: 'SYSTEM',
+    label: 'System',
     items: [
       { label: 'Settings',      to: '/settings',      icon: Settings },
       { label: 'Users',         to: '/users',         icon: Users },
@@ -100,10 +102,6 @@ const NAV_GROUPS = [
     ],
   },
 ]
-
-const CREDITS_USED  = 7200
-const CREDITS_TOTAL = 10000
-const CREDITS_PCT   = Math.round((CREDITS_USED / CREDITS_TOTAL) * 100)
 
 // ── Logo ─────────────────────────────────────────────────────────────────────
 function LogoMark({ size = 36 }) {
@@ -134,67 +132,57 @@ function LogoMark({ size = 36 }) {
 }
 
 // ── NavItem ───────────────────────────────────────────────────────────────────
-function NavItem({ item, collapsed }) {
-  const { label, to, icon: Icon, badge, badgeColor = 'bg-danger-500' } = item
+function NavItem({ item, collapsed, onNavigate }) {
+  const { label, to, icon: Icon } = item
 
   return (
     <NavLink
       to={to}
       title={collapsed ? label : undefined}
       aria-label={label}
+      onClick={onNavigate}
       className={({ isActive }) =>
         cn(
-          'group relative flex items-center rounded-lg text-sm font-medium outline-none',
+          'group relative flex items-center rounded-md text-[13px] font-medium outline-none',
           'transition-colors duration-150',
           'focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 focus-visible:ring-offset-bg-sidebar',
-          collapsed ? 'justify-center px-0 py-2.5 mx-1' : 'gap-3 px-3 py-2.5',
+          collapsed ? 'mx-1 justify-center py-2' : 'gap-2.5 px-2.5 py-[7px]',
           isActive
-            ? 'bg-primary-600 text-white'
-            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            ? 'bg-white/10 text-white'
+            : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'
         )
       }
     >
       {({ isActive }) => (
         <>
-          <Icon size={18} className="shrink-0" aria-hidden="true" />
+          {/* Active marker */}
+          <span
+            aria-hidden="true"
+            className={cn(
+              'absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-primary-400',
+              'origin-center transition-transform duration-200',
+              isActive ? 'scale-y-100' : 'scale-y-0'
+            )}
+          />
+          <Icon
+            size={16}
+            className={cn('shrink-0 transition-colors', isActive ? 'text-primary-300' : 'text-slate-500 group-hover:text-slate-300')}
+            aria-hidden="true"
+          />
 
-          {!collapsed && <span className="flex-1 truncate leading-none">{label}</span>}
-
-          {/* Badge */}
-          {badge != null && (
-            collapsed ? (
-              <span
-                className={cn('absolute right-1 top-1 size-2 rounded-full', badgeColor)}
-                aria-label={`${badge} items`}
-              />
-            ) : (
-              <span
-                className={cn(
-                  'ml-auto min-w-[1.25rem] rounded-full px-1.5 py-px text-center text-[10px] font-bold leading-none',
-                  isActive ? 'bg-white/25 text-white' : cn(badgeColor, 'text-white')
-                )}
-              >
-                {badge}
-              </span>
-            )
-          )}
+          {!collapsed && <span className="min-w-0 flex-1 truncate leading-tight" title={label}>{label}</span>}
 
           {/* Hover tooltip (collapsed only) */}
           {collapsed && (
             <span
               aria-hidden="true"
               className={cn(
-                'pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-lg',
+                'pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-md',
                 'bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white shadow-xl',
-                'opacity-0 transition-opacity group-hover:opacity-100'
+                'translate-x-[-4px] opacity-0 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100'
               )}
             >
               {label}
-              {badge != null && (
-                <span className={cn('ml-1.5 rounded-full px-1.5 py-px text-[10px] font-bold', badgeColor)}>
-                  {badge}
-                </span>
-              )}
             </span>
           )}
         </>
@@ -204,83 +192,56 @@ function NavItem({ item, collapsed }) {
 }
 
 // ── NavGroup ──────────────────────────────────────────────────────────────────
-function NavGroup({ group, collapsed }) {
+function NavGroup({ group, collapsed, closed, onToggle, onNavigate }) {
+  const { pathname } = useLocation()
+  const hasActive = group.items.some((i) => pathname === i.to || pathname.startsWith(i.to + '/'))
+  // Never hide the section the user is currently in.
+  const folded = !collapsed && closed && !hasActive
+
   return (
     <div>
       {collapsed ? (
-        <div className="my-2 border-t border-white/8" />
+        <div className="mx-3 my-2 border-t border-white/10" />
       ) : (
-        <p className="mb-1 mt-5 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500 first:mt-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={!folded}
+          className="mb-0.5 mt-3 flex w-full items-center justify-between rounded px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-wider text-slate-500 outline-none transition-colors hover:text-slate-300 focus-visible:ring-2 focus-visible:ring-primary-500"
+        >
           {group.label}
-        </p>
+          <ChevronDown
+            size={12}
+            aria-hidden="true"
+            className={cn('transition-transform duration-200', folded && '-rotate-90')}
+          />
+        </button>
       )}
-      <div className="space-y-0.5">
-        {group.items.map((item) => (
-          <NavItem key={item.to} item={item} collapsed={collapsed} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── AI Credits widget ─────────────────────────────────────────────────────────
-function CreditsWidget({ collapsed }) {
-  if (collapsed) {
-    return (
       <div
-        className="flex justify-center py-3"
-        title={`AI Credits: ${CREDITS_USED.toLocaleString()} / ${CREDITS_TOTAL.toLocaleString()} used`}
+        className={cn(
+          'grid transition-[grid-template-rows] duration-200 ease-out',
+          folded ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
+        )}
       >
-        <Zap size={18} className="text-warning-500" aria-hidden="true" />
-      </div>
-    )
-  }
-
-  return (
-    <div className="mx-2 mb-2 rounded-xl bg-white/6 p-3.5 ring-1 ring-white/10">
-      <div className="mb-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <Zap size={13} className="text-warning-500" aria-hidden="true" />
-          <span className="text-[11px] font-semibold text-slate-200">AI Credits</span>
+        <div className={cn("min-w-0 space-y-px", folded ? "overflow-hidden" : "overflow-visible")}>
+          {group.items.map((item) => (
+            <NavItem key={item.to} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+          ))}
         </div>
-        <span className="text-[10px] text-slate-500">{CREDITS_PCT}%</span>
       </div>
-
-      {/* Track */}
-      <div className="mb-2.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-        <div
-          role="progressbar"
-          aria-valuenow={CREDITS_USED}
-          aria-valuemin={0}
-          aria-valuemax={CREDITS_TOTAL}
-          aria-label="AI Credits used"
-          className="h-full rounded-full bg-gradient-to-r from-teal-500 to-primary-500 transition-all duration-700"
-          style={{ width: `${CREDITS_PCT}%` }}
-        />
-      </div>
-
-      <p className="mb-3 text-[11px] text-slate-400">
-        <span className="font-semibold text-slate-200">{CREDITS_USED.toLocaleString()}</span>
-        {' / '}
-        {CREDITS_TOTAL.toLocaleString()} used
-      </p>
-
-      <button className="w-full rounded-btn border border-primary-500/60 py-1.5 text-[11px] font-semibold text-primary-400 outline-none transition-colors hover:bg-primary-600 hover:border-primary-600 hover:text-white focus-visible:ring-2 focus-visible:ring-primary-500">
-        Upgrade Plan
-      </button>
     </div>
   )
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 export default function Sidebar({ mobile = false, onClose }) {
-  const { sidebarCollapsed, toggleCollapse } = useUIStore()
+  const { sidebarCollapsed, toggleCollapse, navGroupsClosed, toggleNavGroup } = useUIStore()
   const collapsed = mobile ? false : sidebarCollapsed
 
   return (
     <aside
       className={cn(
-        'flex h-full flex-col bg-bg-sidebar transition-all duration-200',
+        'flex h-full flex-col bg-bg-sidebar transition-[width] duration-200',
         !mobile && 'fixed inset-y-0 left-0 z-30',
         !mobile && (collapsed ? SIDEBAR_W_C : SIDEBAR_W)
       )}
@@ -288,15 +249,15 @@ export default function Sidebar({ mobile = false, onClose }) {
       {/* ── Logo ── */}
       <div
         className={cn(
-          'flex h-16 shrink-0 items-center border-b border-white/8',
+          'flex h-14 shrink-0 items-center border-b border-white/10',
           collapsed && !mobile ? 'justify-center px-0' : 'gap-2.5 px-4'
         )}
       >
-        <LogoMark size={34} />
+        <LogoMark size={28} />
         {(!collapsed || mobile) && (
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold leading-tight text-white">Decoinks</p>
-            <p className="truncate text-[10px] leading-tight text-slate-400">AI Ads Supervisor</p>
+            <p className="truncate text-sm font-semibold leading-tight text-white">Decoinks</p>
+            <p className="truncate text-[11px] leading-tight text-slate-400">AI Ads Supervisor</p>
           </div>
         )}
 
@@ -315,29 +276,31 @@ export default function Sidebar({ mobile = false, onClose }) {
       {/* ── Scrollable nav ── */}
       <nav
         aria-label="Main navigation"
-        className="scrollbar-hide flex-1 overflow-y-auto px-2 py-1"
+        className={cn('flex-1 overflow-y-auto px-2 pb-3', collapsed ? 'scrollbar-hide' : 'scrollbar-dark')}
       >
         {NAV_GROUPS.map((group) => (
-          <NavGroup key={group.id} group={group} collapsed={collapsed} />
+          <NavGroup
+            key={group.id}
+            group={group}
+            collapsed={collapsed}
+            closed={!!navGroupsClosed?.[group.id]}
+            onToggle={() => toggleNavGroup(group.id)}
+            onNavigate={mobile ? onClose : undefined}
+          />
         ))}
       </nav>
 
-      {/* ── Credits widget ── */}
-      <div className="shrink-0 border-t border-white/8 pt-3">
-        <CreditsWidget collapsed={collapsed} />
-      </div>
-
       {/* ── Collapse toggle (desktop only) ── */}
       {!mobile && (
-        <div className={cn('shrink-0 border-t border-white/8 p-2', collapsed && 'flex justify-center')}>
+        <div className={cn('shrink-0 border-t border-white/10 p-2', collapsed && 'flex justify-center')}>
           <button
             onClick={toggleCollapse}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={cn(
-              'flex items-center gap-2 rounded-lg py-2 text-slate-400 outline-none',
-              'transition-colors hover:bg-slate-800 hover:text-white',
+              'flex items-center gap-2 rounded-md py-1.5 text-slate-400 outline-none',
+              'transition-colors hover:bg-white/5 hover:text-white',
               'focus-visible:ring-2 focus-visible:ring-primary-500',
-              collapsed ? 'justify-center px-2' : 'w-full px-3'
+              collapsed ? 'justify-center px-2' : 'w-full px-2.5'
             )}
           >
             {collapsed ? (

@@ -34,6 +34,8 @@ from app.schemas.ai_analysis import (
 )
 
 
+from app.services.winning import winning_ad_filter
+
 router = APIRouter(prefix="/ai-analysis", tags=["ai-analysis"])
 
 
@@ -47,8 +49,6 @@ CONF_BUCKETS = [
     {"range": f"81{_DASH}100", "label": "Very High", "min": 81, "max": 100, "color": "#10B981"},
 ]
 
-# Winning threshold — matches settings default
-WINNING_THRESHOLD = 65.0
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -74,12 +74,17 @@ def _build_winning_ad(ad: Ad, rank: int) -> WinningAdResponse:
         )
 
     # Compute running_since_days
+    # Real Meta start date when known, else when we first captured the ad.
     now = datetime.now(timezone.utc)
     first_seen = ad.first_seen
     if first_seen.tzinfo is None:
         first_seen = first_seen.replace(tzinfo=timezone.utc)
-    days = max(0, (now - first_seen).days)
-    date_str = first_seen.strftime("%b %d, %Y")
+    if ad.active_since:
+        days = max(0, (now.date() - ad.active_since).days)
+        date_str = ad.active_since.strftime("%b %d, %Y")
+    else:
+        days = max(ad.days_running or 0, (now - first_seen).days)
+        date_str = first_seen.strftime("%b %d, %Y")
 
     analysis_block = None
     if a and (a.summary or a.suggested_angle or a.suggested_hook):
@@ -106,7 +111,8 @@ def _build_winning_ad(ad: Ad, rank: int) -> WinningAdResponse:
         cta=ad.cta,
         ad_url=ad.ad_url,
         landing_url=ad.landing_url,
-        media_url=ad.media_url,
+        # Stored copy first: Meta CDN links expire within days.
+        media_url=ad.screenshot_url or ad.media_url,
         is_video=ad.is_video,
         variants=ad.variants,
         running_since_days=days,
@@ -138,9 +144,11 @@ async def get_ai_summary(
     total_stmt = select(func.count(AdAnalysis.id))
     total_analyzed = (await db.execute(total_stmt)).scalar() or 0
 
-    # Winning = confidence >= threshold
-    winning_stmt = select(func.count(AdAnalysis.id)).where(
-        AdAnalysis.confidence_score >= WINNING_THRESHOLD
+    # Winning = still active after more than 30 days (see services/winning.py)
+    winning_stmt = (
+        select(func.count(Ad.id))
+        .join(Competitor, Competitor.id == Ad.competitor_id)
+        .where(Competitor.is_own_brand == False, winning_ad_filter())  # noqa: E712
     )
     winning_ads = (await db.execute(winning_stmt)).scalar() or 0
 
@@ -182,8 +190,9 @@ async def get_performance_timeline(
             func.date_trunc("day", AdAnalysis.analyzed_at).label("day"),
             func.count(AdAnalysis.id).label("c"),
         )
+        .join(Ad, Ad.id == AdAnalysis.ad_id)
         .where(
-            AdAnalysis.confidence_score >= WINNING_THRESHOLD,
+            winning_ad_filter(),
             AdAnalysis.analyzed_at >= start_date,
         )
         .group_by("day")
@@ -274,20 +283,20 @@ async def get_winning_ads(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Top winning ads sorted by confidence_score DESC.
+    Winning ads (active for more than 30 days), longest-running first.
     Returns plain array (frontend does client-side pagination with Array.slice).
     rank field is 1-indexed position in this sorted list.
     est_roas and est_engagement are always 0.0 — not available from FB Ad Library.
     """
     stmt = (
         select(Ad)
-        .join(AdAnalysis, AdAnalysis.ad_id == Ad.id)
-        .where(AdAnalysis.confidence_score >= WINNING_THRESHOLD)
+        .join(Competitor, Competitor.id == Ad.competitor_id)
+        .where(Competitor.is_own_brand == False, winning_ad_filter())  # noqa: E712
         .options(
             selectinload(Ad.competitor),
             selectinload(Ad.analysis),
         )
-        .order_by(AdAnalysis.confidence_score.desc())
+        .order_by(Ad.active_since.asc().nulls_last(), Ad.days_running.desc())
     )
     ads = (await db.execute(stmt)).scalars().unique().all()
 

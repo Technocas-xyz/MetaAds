@@ -410,20 +410,20 @@ function ScreenshotCard({ value, onChange, onClearError, error }) {
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border-default px-4 py-3">
               {meta.width && (
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">Resolution</p>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">Resolution</p>
                   <p className="text-sm text-text-primary">{meta.width} × {meta.height} px</p>
                 </div>
               )}
               <div>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">File Type</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">File Type</p>
                 <p className="text-sm text-text-primary">{meta.type}</p>
               </div>
               <div>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">File Size</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">File Size</p>
                 <p className="text-sm text-text-primary">{meta.size}</p>
               </div>
               <div>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">Captured At</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">Captured At</p>
                 <p className="text-sm text-text-primary">{meta.capturedAt}</p>
               </div>
             </div>

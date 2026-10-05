@@ -83,3 +83,10 @@ export const getScheduleStatus = () =>
 
 export const toggleSchedule = (enabled) =>
   client.post('/scraper/schedule/toggle', { enabled }).then((r) => r.data)
+
+// Meta login session used by the scraper (cookie values never come back)
+export const getMetaSession = () => client.get('/scraper/meta-session').then((r) => r.data)
+export const saveMetaSession = (cookies) => client.post('/scraper/meta-session', { cookies }).then((r) => r.data)
+export const deleteMetaSession = () => client.delete('/scraper/meta-session').then((r) => r.data)
+export const testMetaSession = () =>
+  client.post('/scraper/meta-session/test', null, { timeout: 130000 }).then((r) => r.data)

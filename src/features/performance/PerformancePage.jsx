@@ -133,7 +133,7 @@ function PriorityBadge({ priority }) {
     low:    'bg-blue-100 text-blue-600',
   }
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${cfg[priority]}`}>
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${cfg[priority]}`}>
       {priority}
     </span>
   )
@@ -146,7 +146,7 @@ function StatusBadge({ status }) {
     low:     { cls: 'bg-red-100   text-red-700',    label: 'Low Performer' },
   }
   const { cls, label } = cfg[status] ?? cfg.low
-  return <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>{label}</span>
+  return <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>{label}</span>
 }
 
 // ── KPI shimmer ───────────────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ function PerformanceLineChart() {
           <p className="text-sm font-semibold text-text-primary">Performance Over Time</p>
           <p className="text-xs text-text-tertiary">All Creatives</p>
         </div>
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-text-secondary">Last 7 Days</span>
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-text-secondary">Last 7 Days</span>
       </div>
       <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1">
         {[['Spend','#6366F1'],['Leads','#22C55E'],['Conversions','#F59E0B'],['ROAS','#EC4899']].map(([l,c]) => (
@@ -231,13 +231,13 @@ function FunnelStageRow({ stage, count, pct, metric, color, width }) {
       <div className="flex items-center gap-2">
         <div className="flex h-7 flex-1 items-center overflow-hidden rounded" style={{ background: '#f1f5f9' }}>
           <div
-            className={`flex h-full items-center justify-center text-[10px] font-bold text-white ${color}`}
+            className={`flex h-full items-center justify-center text-[11px] font-bold text-white ${color}`}
             style={{ width: `${width}%`, minWidth: 40 }}
           >
             {count.toLocaleString()}
           </div>
         </div>
-        <span className="w-28 shrink-0 text-right text-[10px] text-text-tertiary">{metric}</span>
+        <span className="w-28 shrink-0 text-right text-[11px] text-text-tertiary">{metric}</span>
       </div>
     </div>
   )
@@ -252,7 +252,7 @@ function FunnelCard() {
           <FunnelStageRow key={s.stage} {...s} />
         ))}
       </div>
-      <p className="mt-3 text-[10px] text-text-tertiary">
+      <p className="mt-3 text-[11px] text-text-tertiary">
         Total spend: $45,231.68 across all stages
       </p>
     </div>
@@ -338,7 +338,7 @@ function CreativeDistribution() {
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="text-center">
             <p className="text-xl font-bold text-text-primary">428</p>
-            <p className="text-[10px] text-text-secondary">Creatives</p>
+            <p className="text-[11px] text-text-secondary">Creatives</p>
           </div>
         </div>
       </div>
@@ -539,7 +539,7 @@ function AIRecommendationsCard() {
 function QuickActionBar() {
   const navigate = useNavigate()
   const collapsed = useUIStore((s) => s.sidebarCollapsed)
-  const offset = collapsed ? 'lg:pl-[72px]' : 'lg:pl-60'
+  const offset = collapsed ? 'lg:pl-14' : 'lg:pl-56'
 
   return (
     <div className={`fixed bottom-0 inset-x-0 z-20 border-t border-border-default bg-white shadow-lg ${offset}`}>
@@ -553,7 +553,7 @@ function QuickActionBar() {
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-50">
               <Icon size={16} className="text-primary-600" />
             </span>
-            <span className="text-[10px] font-medium text-text-secondary">{label}</span>
+            <span className="text-[11px] font-medium text-text-secondary">{label}</span>
           </button>
         ))}
       </div>
@@ -567,7 +567,7 @@ export default function PerformancePage() {
   const creatives = data?.data ?? []
 
   return (
-    <div className="space-y-6 p-4 pb-28 sm:p-6">
+    <div className="space-y-5 pb-24">
       <Breadcrumb />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -590,7 +590,7 @@ export default function PerformancePage() {
       </div>
 
       {/* 8 KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 2xl:grid-cols-8">
         {KPI_DATA.map((kpi) => (
           <div
             key={kpi.title}
@@ -616,7 +616,7 @@ export default function PerformancePage() {
       </div>
 
       {/* 4-chart grid */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-4">
         <PerformanceLineChart />
         <FunnelCard />
         <AIPerformanceSummary />
@@ -624,7 +624,7 @@ export default function PerformancePage() {
       </div>
 
       {/* Table + AI Recommendations */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <CreativesTable creatives={creatives} loading={isLoading} />
         <AIRecommendationsCard />
       </div>

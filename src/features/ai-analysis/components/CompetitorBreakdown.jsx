@@ -48,13 +48,13 @@ export default function CompetitorBreakdown() {
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-text-primary truncate">{c.name}</span>
-                <span className="text-[9px] text-text-secondary">
+                <span className="text-[10px] text-text-secondary">
                   {c.analyzed}/{c.total_ads} analyzed
                 </span>
               </div>
 
               {c.analyzed === 0 ? (
-                <p className="text-[10px] text-text-secondary italic">Pending analysis...</p>
+                <p className="text-[11px] text-text-secondary italic">Pending analysis...</p>
               ) : (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -64,7 +64,7 @@ export default function CompetitorBreakdown() {
                       <Badge color="amber" size="xs">Offer: {c.top_offer}</Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] text-text-secondary">
+                  <div className="flex items-center gap-2 text-[11px] text-text-secondary">
                     {c.longest_running_days > 0 && (
                       <span className="flex items-center gap-0.5">
                         <Trophy size={9} className="text-amber-500" />

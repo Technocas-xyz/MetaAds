@@ -187,7 +187,7 @@ export default function MyAdsPage() {
             <div>
               <label className="text-xs font-medium text-text-secondary">Meta Ad Library URL</label>
               <input value={setupForm.meta_ad_library_url} onChange={(e) => setSetupForm(f => ({ ...f, meta_ad_library_url: e.target.value }))} placeholder="https://www.facebook.com/ads/library/?...view_all_page_id=..." className="mt-1 w-full rounded-btn border border-border-default px-3 py-2 text-sm" />
-              <p className="mt-1 text-[10px] text-text-tertiary">Paste your brand's Meta Ad Library URL — the page_id will be extracted automatically.</p>
+              <p className="mt-1 text-[11px] text-text-tertiary">Paste your brand's Meta Ad Library URL — the page_id will be extracted automatically.</p>
             </div>
             <div>
               <label className="text-xs font-medium text-text-secondary">Page ID (optional, auto-extracted from URL)</label>
@@ -241,7 +241,7 @@ export default function MyAdsPage() {
             <h3 className="text-sm font-semibold text-primary-700">What Ad Should We Make?</h3>
           </div>
           <p className="text-xs text-text-primary leading-relaxed mb-3">{recommendation.summary}</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 text-[10px]">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 text-[11px]">
             <div className="rounded-lg bg-white p-2 border border-border-default">
               <p className="text-text-tertiary">Hook</p>
               <p className="font-semibold text-text-primary">{recommendation.recommended_hook_type}</p>
@@ -261,7 +261,7 @@ export default function MyAdsPage() {
           </div>
           {recommendation.example_hooks?.length > 0 && (
             <div className="mt-3">
-              <p className="text-[10px] font-semibold text-text-secondary mb-1">Example Hooks:</p>
+              <p className="text-[11px] font-semibold text-text-secondary mb-1">Example Hooks:</p>
               <ul className="space-y-1">
                 {recommendation.example_hooks.map((h, i) => (
                   <li key={i} className="text-xs text-text-primary italic">"{h}"</li>
@@ -273,7 +273,7 @@ export default function MyAdsPage() {
       )}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <KPICard title="Total Ads" value={stats?.total_ads || 0} icon={BarChart3} iconBg="bg-blue-50" iconColor="text-blue-600" />
         <KPICard title="New (7d)" value={stats?.new_7d || 0} icon={Zap} iconBg="bg-green-50" iconColor="text-green-600" />
         <KPICard title="Long-Running (3mo+)" value={stats?.long_running || 0} icon={Clock} iconBg="bg-purple-50" iconColor="text-purple-600" />
@@ -303,7 +303,7 @@ export default function MyAdsPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {ads.map((ad) => (
               <div key={ad.id} className="rounded-card border border-border-default bg-white p-4 shadow-card space-y-3">
                 {/* Image + headline */}
@@ -315,7 +315,7 @@ export default function MyAdsPage() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-text-primary truncate">{ad.headline || ad.hook || '—'}</p>
-                    <p className="text-[10px] text-text-secondary line-clamp-2 mt-0.5">{ad.primary_text?.slice(0, 100) || '—'}</p>
+                    <p className="text-[11px] text-text-secondary line-clamp-2 mt-0.5">{ad.primary_text?.slice(0, 100) || '—'}</p>
                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                       {ad.hook_type && <HookTypeBadge type={ad.hook_type} />}
                       {ad.angle && <Badge color="purple" size="xs">{ad.angle}</Badge>}
@@ -324,21 +324,21 @@ export default function MyAdsPage() {
                   </div>
                 </div>
                 {/* Meta row */}
-                <div className="flex items-center justify-between text-[10px] text-text-secondary">
+                <div className="flex items-center justify-between text-[11px] text-text-secondary">
                   <span>{ad.days_running}d running</span>
                   {ad.confidence_score && <span className={cn('font-medium', ad.confidence_score >= 70 ? 'text-green-600' : ad.confidence_score >= 40 ? 'text-amber-600' : 'text-red-600')}>{Math.round(ad.confidence_score)}% conf</span>}
                 </div>
                 {/* Actions */}
                 <div className="flex items-center gap-2 border-t border-border-default pt-2">
-                  <button onClick={() => handleSuggest(ad.id)} disabled={suggestingAdId === ad.id} className="inline-flex items-center gap-1 text-[10px] font-medium text-primary-600 hover:underline disabled:opacity-50">
+                  <button onClick={() => handleSuggest(ad.id)} disabled={suggestingAdId === ad.id} className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-600 hover:underline disabled:opacity-50">
                     {suggestingAdId === ad.id ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                     Improve
                   </button>
-                  <Link to={`/ads/${ad.id}`} className="inline-flex items-center gap-1 text-[10px] font-medium text-text-secondary hover:text-text-primary">
+                  <Link to={`/ads/${ad.id}`} className="inline-flex items-center gap-1 text-[11px] font-medium text-text-secondary hover:text-text-primary">
                     <Eye size={10} /> View
                   </Link>
                   {ad.ad_url && (
-                    <a href={ad.ad_url} target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex items-center gap-1 text-[10px] text-text-tertiary hover:text-text-primary">
+                    <a href={ad.ad_url} target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex items-center gap-1 text-[11px] text-text-tertiary hover:text-text-primary">
                       <ExternalLink size={10} /> Meta
                     </a>
                   )}
@@ -375,7 +375,7 @@ export default function MyAdsPage() {
 
             {suggestion.suggestion?.gaps?.length > 0 && (
               <div className="mb-3">
-                <p className="text-[10px] font-semibold text-text-secondary uppercase mb-1">Gaps vs Competitors</p>
+                <p className="text-[11px] font-semibold text-text-secondary uppercase mb-1">Gaps vs Competitors</p>
                 <ul className="space-y-1">
                   {suggestion.suggestion.gaps.map((g, i) => (
                     <li key={i} className="text-xs text-text-primary flex gap-1.5">
@@ -388,7 +388,7 @@ export default function MyAdsPage() {
 
             {suggestion.suggestion?.weaknesses?.length > 0 && (
               <div className="mb-3">
-                <p className="text-[10px] font-semibold text-text-secondary uppercase mb-1">Weaknesses</p>
+                <p className="text-[11px] font-semibold text-text-secondary uppercase mb-1">Weaknesses</p>
                 <ul className="space-y-1">
                   {suggestion.suggestion.weaknesses.map((w, i) => (
                     <li key={i} className="text-xs text-text-primary flex gap-1.5">
@@ -401,7 +401,7 @@ export default function MyAdsPage() {
 
             {suggestion.suggestion?.suggested_hooks?.length > 0 && (
               <div className="mb-3">
-                <p className="text-[10px] font-semibold text-text-secondary uppercase mb-1">Try These Hooks</p>
+                <p className="text-[11px] font-semibold text-text-secondary uppercase mb-1">Try These Hooks</p>
                 <ul className="space-y-1">
                   {suggestion.suggestion.suggested_hooks.map((h, i) => (
                     <li key={i} className="text-xs text-text-primary italic">"{h}"</li>
@@ -414,7 +414,7 @@ export default function MyAdsPage() {
               <div className="flex gap-2 flex-wrap mt-3">
                 {suggestion.suggestion.recommended_angle && <Badge color="purple" size="xs">Angle: {suggestion.suggestion.recommended_angle}</Badge>}
                 {suggestion.suggestion.recommended_offer && <Badge color="amber" size="xs">Offer: {suggestion.suggestion.recommended_offer}</Badge>}
-                {suggestion.suggestion.format_note && <span className="text-[10px] text-text-secondary">{suggestion.suggestion.format_note}</span>}
+                {suggestion.suggestion.format_note && <span className="text-[11px] text-text-secondary">{suggestion.suggestion.format_note}</span>}
               </div>
             )}
 

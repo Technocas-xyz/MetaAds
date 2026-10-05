@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
-  Trash2, Search, X, ChevronLeft, ChevronRight, Eye, Calendar, TrendingDown,
+  Trash2, Search, X, ChevronLeft, ChevronRight, Eye, Calendar, TrendingDown, ExternalLink, Image, Play,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import PageHeader from '../../components/ui/PageHeader'
@@ -30,12 +30,81 @@ function NativeSelect({ value, onChange, children, placeholder }) {
         'px-3 pr-7 text-sm shadow-sm appearance-none cursor-pointer',
         'focus:outline-none focus:ring-2 focus:ring-primary-500 hover:bg-gray-50',
         !value && 'text-text-tertiary', value && 'text-text-primary',
-        'bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748B\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'m6 9 6 6 6-6\'/%3E%3C/svg%3E")] bg-[right_0.5rem_center] bg-no-repeat'
       )}
     >
       <option value="">{placeholder}</option>
       {children}
     </select>
+  )
+}
+
+function RemovedAdCard({ ad }) {
+  // Stored copy first (doesn't expire), then the Meta CDN link.
+  const sources = [ad.screenshot_url, ad.media_url].filter(Boolean)
+  const [srcIndex, setSrcIndex] = useState(0)
+  const src = sources[srcIndex]
+
+  return (
+    <div className="flex flex-col overflow-hidden rounded-lg border border-danger-200 bg-white text-[11px] shadow-sm">
+      <div className="flex items-center gap-1.5 border-b border-danger-100 bg-danger-50 px-3 py-1.5">
+        <span className="rounded bg-danger-600 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">Removed</span>
+        <span className="text-[11px] text-danger-700">
+          {ad.removed_at ? new Date(ad.removed_at).toLocaleDateString() : '—'}
+        </span>
+        <span className="ml-auto text-[11px] font-medium text-text-secondary">Ran {ad.days_running}d</span>
+      </div>
+
+      <div className="relative bg-gray-50">
+        {src ? (
+          <>
+            <img
+              src={src}
+              alt=""
+              loading="lazy"
+              className="h-56 w-full object-contain grayscale-[30%]"
+              onError={() => setSrcIndex((i) => i + 1)}
+            />
+            {ad.is_video && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
+                  <Play size={18} className="text-white" fill="white" />
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex h-56 flex-col items-center justify-center gap-1 text-gray-400">
+            <Image size={22} />
+            <span className="text-[11px]">Image not saved — open on Meta</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 space-y-1 px-3 py-2">
+        <p className="text-[11px] font-semibold text-text-secondary">{ad.competitor_name}</p>
+        <p className="line-clamp-2 text-xs font-medium text-text-primary">{ad.headline || '—'}</p>
+        {ad.primary_text && <p className="line-clamp-2 text-[11px] text-text-secondary">{ad.primary_text}</p>}
+        <div className="flex flex-wrap gap-1 pt-1">
+          {ad.hook_type && <HookTypeBadge type={ad.hook_type} />}
+          {ad.angle && <Badge color="purple" size="xs">{ad.angle}</Badge>}
+          {ad.offer_type && ad.offer_type !== 'None' && <Badge color="amber" size="xs">{ad.offer_type}</Badge>}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-border-default px-3 py-1.5">
+        <span className="truncate text-[10px] text-text-secondary">{ad.ad_library_id ? `ID: ${ad.ad_library_id}` : ''}</span>
+        <div className="flex items-center gap-1">
+          {ad.ad_url && (
+            <a href={ad.ad_url} target="_blank" rel="noopener noreferrer" className="rounded p-1 text-text-secondary hover:text-blue-600" title="View on Meta">
+              <ExternalLink size={12} />
+            </a>
+          )}
+          <Link to={`/ads/${ad.id}`} className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-primary-600 hover:bg-primary-50">
+            <Eye size={12} /> View
+          </Link>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -105,13 +174,13 @@ export default function RemovedAdsPage() {
         subtitle="Ads competitors took down — intelligence about what didn't work"
         rightSlot={
           <span className="text-xs text-text-secondary">
-            {meta.total} removed ads total
+            {hasFilters ? `${meta.total} matching filters` : `${meta.total} removed ads`}
           </span>
         }
       />
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KPICard title="Total Removed" value={stats?.total_removed || 0} icon={Trash2} iconBg="bg-red-50" iconColor="text-red-600" />
         <KPICard title="Removed (7d)" value={stats?.removed_7d || 0} icon={Calendar} iconBg="bg-orange-50" iconColor="text-orange-600" />
         <KPICard title="Removed (30d)" value={stats?.removed_30d || 0} icon={Calendar} iconBg="bg-amber-50" iconColor="text-amber-600" />
@@ -172,72 +241,8 @@ export default function RemovedAdsPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px] text-sm">
-                <thead>
-                  <tr className="border-b border-border-default bg-gray-50/50">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Creative</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Competitor</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Headline / Text</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Hook</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Angle</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Offer</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">Confidence</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary">Days Ran</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary">Removed</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-default">
-                  {ads.map((ad) => (
-                    <tr key={ad.id} className="hover:bg-gray-50/60 transition-colors">
-                      <td className="px-4 py-3">
-                        {(ad.screenshot_url || ad.media_url) ? (
-                          <img src={ad.screenshot_url || ad.media_url} alt="" className="h-10 w-10 rounded object-cover border border-border-default" onError={(e) => { e.target.style.display = 'none' }} />
-                        ) : <div className="h-10 w-10 rounded bg-gray-100" />}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-medium text-text-primary">{ad.competitor_name}</span>
-                      </td>
-                      <td className="px-4 py-3 max-w-[180px]">
-                        <p className="text-xs font-medium text-text-primary truncate">{ad.headline || '—'}</p>
-                        <p className="text-[10px] text-text-secondary truncate">{ad.primary_text?.slice(0, 60) || '—'}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        {ad.hook_type && <HookTypeBadge type={ad.hook_type} />}
-                      </td>
-                      <td className="px-4 py-3">
-                        {ad.angle && <Badge color="purple" size="xs">{ad.angle}</Badge>}
-                      </td>
-                      <td className="px-4 py-3">
-                        {ad.offer_type && ad.offer_type !== 'None' && <Badge color="amber" size="xs">{ad.offer_type}</Badge>}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {ad.confidence_score != null && (
-                          <span className={cn('text-xs font-semibold', ad.confidence_score >= 70 ? 'text-green-600' : ad.confidence_score >= 40 ? 'text-amber-600' : 'text-red-600')}>
-                            {Math.round(ad.confidence_score)}%
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className={cn('text-xs font-medium', ad.days_running >= 90 ? 'text-purple-600' : 'text-text-primary')}>
-                          {ad.days_running}d
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-[10px] text-text-secondary">
-                          {ad.removed_at ? new Date(ad.removed_at).toLocaleDateString() : '—'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Link to={`/ads/${ad.id}`} className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium text-primary-600 hover:bg-primary-50">
-                          <Eye size={12} /> View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="stagger grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {ads.map((ad) => <RemovedAdCard key={ad.id} ad={ad} />)}
             </div>
 
             {/* Pagination */}

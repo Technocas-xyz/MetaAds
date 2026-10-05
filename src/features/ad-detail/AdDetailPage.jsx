@@ -165,7 +165,7 @@ function InsightRow({ adId, meta, data, updateAd }) {
       <div className="flex flex-shrink-0 flex-col items-end gap-1 pt-0.5">
         <ConfidenceBadge score={data.confidence} />
         {isLow && (
-          <span className="text-[10px] font-medium text-danger-600">Needs review</span>
+          <span className="text-[11px] font-medium text-danger-600">Needs review</span>
         )}
       </div>
     </div>
@@ -218,7 +218,7 @@ function StickyActionBar({ ad, onSkip, onRerun, isRerunning }) {
       className={cn(
         'fixed bottom-0 inset-x-0 z-30 border-t border-border-default bg-white/95 backdrop-blur-sm shadow-lg',
         'transition-all duration-200',
-        sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-60'
+        sidebarCollapsed ? 'lg:pl-14' : 'lg:pl-56'
       )}
     >
       <div className="flex items-center gap-2 overflow-x-auto px-4 py-2.5 sm:justify-end sm:overflow-visible">

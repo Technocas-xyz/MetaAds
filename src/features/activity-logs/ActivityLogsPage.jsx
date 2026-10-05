@@ -227,7 +227,7 @@ function ActivityDetailDrawer({ log, open, onClose }) {
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">Actor</p>
               <div className="mt-1 flex items-center gap-2">
-                <span className={cn('inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white', log.actor.color)}>
+                <span className={cn('inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-white', log.actor.color)}>
                   {log.actor.initials}
                 </span>
                 <span className="font-medium text-text-primary">{log.actor.name}</span>
@@ -300,7 +300,7 @@ function ActivityDetailDrawer({ log, open, onClose }) {
 
 function Avatar({ actor }) {
   return (
-    <span className={cn('inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white', actor.color)}>
+    <span className={cn('inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white', actor.color)}>
       {actor.initials}
     </span>
   )
@@ -472,7 +472,7 @@ export default function ActivityLogsPage() {
 
   return (
     <>
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-5">
         {/* Header */}
         <PageHeader
           title="Activity Logs"

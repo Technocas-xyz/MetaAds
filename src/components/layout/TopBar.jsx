@@ -4,7 +4,6 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import {
   Menu,
   Search,
-  Bell,
   ChevronDown,
   User,
   Settings,
@@ -16,7 +15,6 @@ import useUIStore from '../../store/useUIStore'
 import useAuthStore from '../../store/useAuthStore'
 import client from '../../api/client'
 
-const MOCK_NOTIFICATIONS = 3
 
 function Avatar({ name }) {
   const initials = name
@@ -26,26 +24,6 @@ function Avatar({ name }) {
     <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-semibold text-white select-none">
       {initials}
     </span>
-  )
-}
-
-function NotificationBell({ count }) {
-  return (
-    <button
-      aria-label={`${count} notification${count !== 1 ? 's' : ''}`}
-      className={cn(
-        'relative rounded-lg p-2 text-text-secondary outline-none',
-        'transition-colors hover:bg-bg-app hover:text-text-primary',
-        'focus-visible:ring-2 focus-visible:ring-primary-500'
-      )}
-    >
-      <Bell size={20} aria-hidden="true" />
-      {count > 0 && (
-        <span className="absolute right-1.5 top-1.5 flex size-[18px] items-center justify-center rounded-full bg-danger-500 text-[9px] font-bold leading-none text-white">
-          {count > 9 ? '9+' : count}
-        </span>
-      )}
-    </button>
   )
 }
 
@@ -161,6 +139,21 @@ export default function Topbar() {
     return () => clearTimeout(timer)
   }, [query])
 
+  // Ctrl/⌘+K focuses search from anywhere; Escape closes results
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+        searchRef.current?.select()
+      } else if (e.key === 'Escape') {
+        setShowResults(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
   // Close on outside click
   useEffect(() => {
     const handleClick = (e) => {
@@ -184,13 +177,7 @@ export default function Topbar() {
 
   return (
     <header
-      onKeyDown={(e) => {
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-          e.preventDefault()
-          searchRef.current?.focus()
-        }
-      }}
-      className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border-default bg-bg-card px-4 sm:px-6"
+      className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border-default bg-white/85 px-4 backdrop-blur sm:px-6"
     >
       {/* Hamburger — mobile/tablet only */}
       <button
@@ -206,7 +193,7 @@ export default function Topbar() {
       </button>
 
       {/* Global search */}
-      <div ref={containerRef} role="search" className="relative mx-auto w-full max-w-2xl">
+      <div ref={containerRef} role="search" className="relative w-full max-w-md">
         <Search
           size={15}
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
@@ -215,7 +202,7 @@ export default function Topbar() {
         <input
           ref={searchRef}
           type="search"
-          placeholder="Search ads, hooks, angles, offers, competitors…"
+          placeholder="Search ads, competitors, hooks…"
           aria-label="Global search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -232,17 +219,14 @@ export default function Topbar() {
           aria-hidden="true"
           className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5"
         >
-          <kbd className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-border-default bg-bg-card px-1 text-[10px] font-medium text-text-tertiary shadow-sm">
-            ⌘
-          </kbd>
-          <kbd className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-border-default bg-bg-card px-1 text-[10px] font-medium text-text-tertiary shadow-sm">
-            K
+          <kbd className="inline-flex h-5 items-center justify-center rounded border border-border-default bg-bg-card px-1.5 text-[11px] font-medium text-text-tertiary shadow-sm">
+            Ctrl K
           </kbd>
         </div>
 
         {/* Search results dropdown */}
         {showResults && results && (
-          <div className="absolute top-full left-0 right-0 mt-1 max-h-[400px] overflow-y-auto rounded-xl border border-border-default bg-white shadow-lg z-50">
+          <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-[400px] overflow-y-auto rounded-xl border border-border-default bg-white shadow-lg animate-in fade-in-0 slide-in-from-top-1 duration-150">
             {totalResults === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-text-secondary">
                 No results for "{query}"
@@ -252,7 +236,7 @@ export default function Topbar() {
                 {/* Competitors */}
                 {results.competitors?.length > 0 && (
                   <div>
-                    <p className="px-4 py-1 text-[10px] font-semibold text-text-tertiary uppercase">Competitors</p>
+                    <p className="px-4 py-1 text-[11px] font-semibold text-text-tertiary uppercase">Competitors</p>
                     {results.competitors.map((c) => (
                       <button
                         key={c.id}
@@ -268,7 +252,7 @@ export default function Topbar() {
                 {/* Ads */}
                 {results.ads?.length > 0 && (
                   <div>
-                    <p className="px-4 py-1 text-[10px] font-semibold text-text-tertiary uppercase">Ads</p>
+                    <p className="px-4 py-1 text-[11px] font-semibold text-text-tertiary uppercase">Ads</p>
                     {results.ads.map((a) => (
                       <button
                         key={a.id}
@@ -283,7 +267,7 @@ export default function Topbar() {
                 {/* Hooks */}
                 {results.hooks?.length > 0 && (
                   <div>
-                    <p className="px-4 py-1 text-[10px] font-semibold text-text-tertiary uppercase">Hooks</p>
+                    <p className="px-4 py-1 text-[11px] font-semibold text-text-tertiary uppercase">Hooks</p>
                     {results.hooks.map((h, i) => (
                       <button
                         key={i}
@@ -298,7 +282,7 @@ export default function Topbar() {
                 {/* Angles */}
                 {results.angles?.length > 0 && (
                   <div>
-                    <p className="px-4 py-1 text-[10px] font-semibold text-text-tertiary uppercase">Angles</p>
+                    <p className="px-4 py-1 text-[11px] font-semibold text-text-tertiary uppercase">Angles</p>
                     {results.angles.map((a, i) => (
                       <button
                         key={i}
@@ -313,7 +297,7 @@ export default function Topbar() {
                 {/* Offers */}
                 {results.offers?.length > 0 && (
                   <div>
-                    <p className="px-4 py-1 text-[10px] font-semibold text-text-tertiary uppercase">Offers</p>
+                    <p className="px-4 py-1 text-[11px] font-semibold text-text-tertiary uppercase">Offers</p>
                     {results.offers.map((o, i) => (
                       <button
                         key={i}
@@ -332,8 +316,7 @@ export default function Topbar() {
       </div>
 
       {/* Right actions */}
-      <div className="flex shrink-0 items-center gap-1">
-        <NotificationBell count={MOCK_NOTIFICATIONS} />
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         <UserDropdown user={user} logout={logout} />
       </div>
     </header>

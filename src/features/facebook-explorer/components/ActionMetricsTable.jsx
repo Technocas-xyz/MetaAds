@@ -13,7 +13,7 @@ export default function ActionMetricsTable({ actions, costPerAction, title, filt
 
   return (
     <div>
-      {title && <p className="text-[10px] font-semibold text-text-secondary uppercase mb-2">{title}</p>}
+      {title && <p className="text-[11px] font-semibold text-text-secondary uppercase mb-2">{title}</p>}
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-border-default bg-gray-50/50">
@@ -25,7 +25,7 @@ export default function ActionMetricsTable({ actions, costPerAction, title, filt
         <tbody className="divide-y divide-border-default">
           {filtered.map((a, i) => (
             <tr key={i} className="hover:bg-gray-50/50">
-              <td className="px-3 py-2 text-text-primary font-mono text-[10px]">{a.action_type}</td>
+              <td className="px-3 py-2 text-text-primary font-mono text-[11px]">{a.action_type}</td>
               <td className="px-3 py-2 text-right">{formatCount(a.value)}</td>
               <td className="px-3 py-2 text-right">{costMap[a.action_type] ? formatCurrency(costMap[a.action_type]) : '—'}</td>
             </tr>

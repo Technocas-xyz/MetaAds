@@ -17,11 +17,11 @@ import asyncio
 import logging
 import re
 import urllib.parse
-from datetime import datetime, timezone, date as date_type
-from typing import Any, Dict, List, Optional, Set
+from datetime import datetime, timedelta, timezone, date as date_type
+from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -34,7 +34,7 @@ from app.services.analysis_service import run_analysis
 logger = logging.getLogger(__name__)
 
 # Per-competitor overall timeout (seconds)
-SCRAPE_TIMEOUT = 1200  # 20 minutes — large competitors (CustomInk ~1500) need more time
+SCRAPE_TIMEOUT = 3600  # 60 minutes — listing + keyword sweep + per-ad verification (scraper budget is 3300s)
 
 AD_LIBRARY_BASE = "https://www.facebook.com/ads/library/"
 
@@ -132,18 +132,31 @@ async def scrape_competitor(
         existing_count_before = len(existing_map)
 
         # Fetch all ads via Playwright
-        scraped_ads = await _fetch_all_ads(competitor, existing_ids)
+        needs_image_ids = {lid for lid, ad in existing_map.items() if not ad.screenshot_url}
+        # Ads we believe are running, least recently confirmed first.
+        verify_ids = [
+            ad.ad_library_id for ad in sorted(
+                (a for a in existing_map.values()
+                 if a.status not in ("flagged", "removed") and not a.ad_library_id.startswith("synth_")),
+                key=lambda a: a.last_seen or datetime.min.replace(tzinfo=timezone.utc),
+            )
+        ]
+        scraped_ads, scrape_meta = await _fetch_all_ads(competitor, existing_ids, needs_image_ids, verify_ids)
 
         # SAFETY: If scrape returned 0 and we had existing ads, do NOTHING.
         # This protects against Meta throttling / transient failures.
+        # Per-ad verification is still trusted: Meta answered for each ad directly.
         if len(scraped_ads) == 0 and existing_count_before > 0:
             duration = int((datetime.now(timezone.utc) - start_time).total_seconds())
             run.ads_found = 0
             run.new_ads = 0
-            run.ended_ads = 0
+            run.ended_ads = _apply_verification(existing_map, scrape_meta, set())
             run.status = "completed"
             run.duration_seconds = duration
-            run.error_message = f"Empty result (Meta returned 0). {existing_count_before} existing ads preserved."
+            run.error_message = (
+                f"Empty listing (Meta returned 0). Listing-based removal skipped; "
+                f"{run.ended_ads} ads confirmed ended individually."
+            )
             await db.commit()
             await db.refresh(run)
             logger.warning(
@@ -232,6 +245,21 @@ async def scrape_competitor(
                         if active_since else datetime.now(timezone.utc)
                     )
 
+                    # No card screenshot: keep our own copy of the creative now,
+                    # while the Meta CDN link still works (it expires in days).
+                    screenshot_url = ad_data.get("screenshot_url")
+                    creative_url = ad_data.get("ad_creative_url") or ad_data.get("video_poster_url")
+                    if not screenshot_url and creative_url and ("scontent" in creative_url or "fbcdn" in creative_url):
+                        try:
+                            from app.core.storage.s3_writer import download_and_store_image
+                            brand_slug = (competitor.name or "unknown").lower().replace(" ", "_")[:30]
+                            ext = "png" if ".png" in creative_url else "jpg"
+                            screenshot_url = await download_and_store_image(
+                                creative_url, f"ad-creatives/{brand_slug}/{library_id}.{ext}"
+                            )
+                        except Exception:
+                            screenshot_url = None
+
                     new_ad = Ad(
                         competitor_id=competitor_id,
                         ad_library_id=library_id,
@@ -245,7 +273,7 @@ async def scrape_competitor(
                         ad_url=f"https://www.facebook.com/ads/library/?id={library_id}",
                         landing_url=ad_data.get("landing_url"),
                         media_url=ad_data.get("ad_creative_url"),
-                        screenshot_url=ad_data.get("screenshot_url"),
+                        screenshot_url=screenshot_url,
                         ad_video_url=ad_data.get("ad_video_url"),
                         video_poster_url=ad_data.get("video_poster_url"),
                         is_video=ad_data.get("is_video", False),
@@ -267,14 +295,25 @@ async def scrape_competitor(
         # likely a transient Meta failure — don't nuke existing data.
         ended_count = 0
         existing_active_count = sum(1 for ad in existing_map.values() if ad.status != "flagged")
+        # Removal detection also requires the scraper to confirm it reached every
+        # active ad. When Meta rate-limits pagination we only see a subset, and
+        # everything outside that subset would otherwise be wrongly marked removed.
+        scrape_complete = bool(scrape_meta.get("complete"))
         run_looks_healthy = (
-            len(found_library_ids) > 0
+            scrape_complete
+            and len(found_library_ids) > 0
             and (existing_active_count == 0 or len(found_library_ids) >= existing_active_count * 0.3)
         )
 
+        # Ads Meta just confirmed as running on their own page are never removed here.
+        verified_active = set(scrape_meta.get("verified_active", []))
         if run_looks_healthy:
             for library_id, existing_ad in existing_map.items():
-                if library_id not in found_library_ids and existing_ad.status not in ("flagged", "removed"):
+                if (
+                    library_id not in found_library_ids
+                    and library_id not in verified_active
+                    and existing_ad.status not in ("flagged", "removed")
+                ):
                     existing_ad.status = "removed"
                     existing_ad.removed_at = datetime.now(timezone.utc)
                     # Freeze days_running at time of removal (don't keep counting up)
@@ -286,6 +325,17 @@ async def scrape_competitor(
                 f"NOT marking {existing_active_count} existing ads as ended (likely transient failure)"
             )
             print(f"[SCRAPER] WARNING: 0 ads returned, preserving {existing_active_count} existing ads")
+        elif not scrape_complete and not scrape_meta.get("coverage_complete"):
+            run.error_message = (
+                f"Partial scrape: {len(found_library_ids)} unique ads covering "
+                f"{scrape_meta.get('covered_results', '?')} of ~{scrape_meta.get('reported_total', '?')} results "
+                f"(rate_limited={scrape_meta.get('rate_limited')}). Removal detection skipped."
+            )
+            logger.warning(f"[scraper] {competitor.name}: {run.error_message}")
+
+        # Per-ad verification works on partial runs too: Meta said directly
+        # whether each unseen ad is still in the library.
+        ended_count += _apply_verification(existing_map, scrape_meta, found_library_ids)
 
         # Update run record
         duration = int((datetime.now(timezone.utc) - start_time).total_seconds())
@@ -355,13 +405,89 @@ async def scrape_competitor(
         raise
 
 
-async def run_scheduled_scrape(competitor_id: UUID) -> None:
+def _estimated_removal_time(ad: Ad, detected_at: datetime) -> datetime:
+    """When an ad most likely ended. We only learn it is gone when we check, which
+    can be long after the fact; dating it to the check makes old removals look like
+    a spike today. If the ad was last confirmed active more than a couple of days
+    before the check, use that last confirmation instead."""
+    last_seen = ad.last_seen
+    if last_seen is not None and last_seen.tzinfo is None:
+        last_seen = last_seen.replace(tzinfo=timezone.utc)
+    if last_seen and detected_at - last_seen > REMOVAL_BACKDATE_AFTER:
+        return last_seen
+    return detected_at
+
+
+def _apply_verification(existing_map: Dict[str, Ad], scrape_meta: Dict[str, Any], found_ids: Set[str]) -> int:
+    """Apply per-ad status checks from the scraper. Returns how many ads were marked removed."""
+    now = datetime.now(timezone.utc)
+    for library_id in scrape_meta.get("verified_active", []):
+        ad = existing_map.get(library_id)
+        if ad:
+            ad.last_seen = now
+    ended = 0
+    for library_id in scrape_meta.get("verified_gone", []):
+        ad = existing_map.get(library_id)
+        if ad and ad.status not in ("flagged", "removed") and library_id not in found_ids:
+            ad.status = "removed"
+            ad.removed_at = _estimated_removal_time(ad, now)
+            ended += 1
+    return ended
+
+
+# Meta answers with an empty listing for a while after many page loads from one
+# IP. Batches wait this out instead of burning through the remaining competitors.
+REMOVAL_BACKDATE_AFTER = timedelta(days=2)
+BLOCK_WAIT_SECONDS = 20 * 60
+BLOCK_MAX_RETRIES = 3
+COOLDOWN_RATIO = 0.15      # pause after each competitor, as a share of its scrape time
+COOLDOWN_MAX_SECONDS = 300
+
+
+async def scrape_in_batch(competitor_id: UUID, trigger: str, should_abort=None) -> Optional[ScrapeRun]:
+    """Scrape one competitor inside a batch: retry after a pause when Meta returns
+    an empty listing for an advertiser we know has ads, then cool down."""
+
+    async def wait(seconds: float) -> bool:
+        """Sleep in short steps; False if the batch was stopped meanwhile."""
+        waited = 0.0
+        while waited < seconds:
+            if should_abort and should_abort():
+                return False
+            await asyncio.sleep(min(15, seconds - waited))
+            waited += 15
+        return True
+
+    run = None
+    for attempt in range(BLOCK_MAX_RETRIES + 1):
+        async with AsyncSessionLocal() as db:
+            run = await scrape_competitor(competitor_id, db, trigger=trigger)
+            active = (await db.execute(
+                select(func.count(Ad.id)).where(
+                    Ad.competitor_id == competitor_id,
+                    Ad.status.notin_(["removed", "flagged"]),
+                )
+            )).scalar() or 0
+        looks_blocked = run.ads_found == 0 and active > 0
+        if not looks_blocked or attempt == BLOCK_MAX_RETRIES:
+            break
+        logger.warning(
+            f"[scraper] Empty listing for a competitor with {active} active ads — Meta is likely "
+            f"blocking. Waiting {BLOCK_WAIT_SECONDS // 60} min before retry {attempt + 1}/{BLOCK_MAX_RETRIES}."
+        )
+        if not await wait(BLOCK_WAIT_SECONDS):
+            return run
+
+    await wait(min(COOLDOWN_MAX_SECONDS, (run.duration_seconds or 0) * COOLDOWN_RATIO))
+    return run
+
+
+async def run_scheduled_scrape(competitor_id: UUID, should_abort=None) -> None:
     """Run a scrape in its own session — used by scheduler."""
-    async with AsyncSessionLocal() as db:
-        try:
-            await scrape_competitor(competitor_id, db, trigger="scheduled")
-        except Exception as e:
-            logger.error(f"Scheduled scrape failed for {competitor_id}: {e}")
+    try:
+        await scrape_in_batch(competitor_id, "scheduled", should_abort)
+    except Exception as e:
+        logger.error(f"Scheduled scrape failed for {competitor_id}: {e}")
 
 
 # ─── Playwright internals (ported from proven MetaAdLibraryTarget) ────────────
@@ -390,10 +516,16 @@ def _build_url(competitor: Competitor) -> str:
     return f"{AD_LIBRARY_BASE}?{urllib.parse.urlencode(params)}"
 
 
-async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List[Dict[str, Any]]:
+async def _fetch_all_ads(
+    competitor: Competitor,
+    existing_ids: Set[str],
+    needs_image_ids: Optional[Set[str]] = None,
+    verify_ids: Optional[List[str]] = None,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Fetch all ads using Playwright — scroll, screenshot, extract.
-    Returns list of ad dicts ready for DB insertion.
+    Returns (ad dicts ready for DB insertion, run metadata). meta["complete"]
+    is False unless the scraper confirmed it reached every active ad.
 
     NOTE: Runs Playwright in a subprocess to avoid Windows asyncio
     ProactorEventLoop limitations with subprocess creation.
@@ -414,11 +546,25 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
 
     # Write input data to a temp file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
-        json.dump({"competitor": comp_data, "existing_ids": existing_list}, f)
+        json.dump({
+            "competitor": comp_data,
+            "existing_ids": existing_list,
+            "needs_image_ids": list(needs_image_ids or []),
+            "verify_ids": verify_ids or [],
+        }, f)
         input_file = f.name
 
     # Output file for results
     output_file = input_file.replace('.json', '_output.json')
+    meta_file = f"{output_file}.meta.json"
+    partial_meta = {"complete": False}
+
+    def read_meta() -> Dict[str, Any]:
+        try:
+            with open(meta_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return partial_meta
 
     # Run the scraper script as a subprocess
     script_path = str(Path(__file__).parent.parent / "scripts" / "run_scraper.py")
@@ -453,8 +599,8 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
                     data = json.load(f)
                 if isinstance(data, list):
                     print(f"[SCRAPER] Got {len(data)} partial results before timeout")
-                    return data
-            return []
+                    return data, partial_meta
+            return [], partial_meta
 
         stdout_text = stdout_bytes.decode('utf-8', errors='replace') if stdout_bytes else ""
         stderr_text = stderr_bytes.decode('utf-8', errors='replace') if stderr_bytes else ""
@@ -465,7 +611,7 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
                 print(f"[SCRAPER:out] {line}")
         if stderr_text:
             stderr_lines = stderr_text.strip().split('\n')
-            for line in stderr_lines[-15:]:
+            for line in stderr_lines[-40:]:
                 print(f"[SCRAPER:err] {line}")
 
         # Read results — even on non-zero returncode, there might be partial results
@@ -482,11 +628,12 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
                 print(f"[SCRAPER] Subprocess error: {error_msg}")
                 print(f"[SCRAPER] Partial results: {len(partial)} ads")
                 if partial:
-                    return partial
+                    return partial, partial_meta
                 raise RuntimeError(f"Scraper subprocess failed: {error_msg}")
             else:
-                print(f"[SCRAPER] Loaded {len(data)} ads from output")
-                return data
+                meta = read_meta()
+                print(f"[SCRAPER] Loaded {len(data)} ads from output (complete={meta.get('complete')})")
+                return data, meta
         else:
             # No output file — capture full error
             full_stderr = stderr_text[-2000:] if stderr_text else "no stderr"
@@ -501,6 +648,7 @@ async def _fetch_all_ads(competitor: Competitor, existing_ids: Set[str]) -> List
         try:
             Path(input_file).unlink(missing_ok=True)
             Path(output_file).unlink(missing_ok=True)
+            Path(meta_file).unlink(missing_ok=True)
         except Exception:
             pass
 

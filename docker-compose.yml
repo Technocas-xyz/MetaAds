@@ -71,6 +71,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://ads_user:ads_password@postgres:5432/ads_supervisor
       DATABASE_SYNC_URL: postgresql://ads_user:ads_password@postgres:5432/ads_supervisor
       SSO_SHARED_SECRET: ${SSO_SHARED_SECRET:-}
+      # Persisted browser session for the Ad Library scraper (backend_runtime volume)
+      META_STORAGE_STATE_PATH: /app/runtime/meta_session.json
     # Chromium needs more shared memory than Docker's default 64MB
     shm_size: "1gb"
     depends_on:

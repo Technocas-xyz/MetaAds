@@ -123,15 +123,15 @@ function Card({ title, subtitle, headerRight, children, className }) {
 
 function RecoKPICard({ title, value, note, noteColor, icon: Icon, iconBg, iconColor }) {
   return (
-    <div className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+    <div className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-text-secondary">{title}</p>
+          <p className="text-xs font-medium text-text-secondary">{title}</p>
           <p className="mt-2 truncate text-2xl font-bold tracking-tight text-text-primary">{value ?? '—'}</p>
           <p className={cn('mt-1 text-xs font-medium', noteColor ?? 'text-text-secondary')}>{note}</p>
         </div>
         <div className={cn('flex-shrink-0 rounded-xl p-2.5', iconBg)}>
-          <Icon size={22} className={iconColor} />
+          <Icon size={18} className={iconColor} />
         </div>
       </div>
     </div>
@@ -170,7 +170,7 @@ function MarketIntelRow({ item }) {
         <p className="mt-0.5 text-[11px] text-text-tertiary leading-snug">{item.desc}</p>
       </div>
       <Sparkline data={item.sparkData} color={item.sparkColor} />
-      <span className={cn('inline-flex flex-shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1', deltaColor)}>
+      <span className={cn('inline-flex flex-shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1', deltaColor)}>
         {deltaLabel}
       </span>
     </div>
@@ -203,7 +203,7 @@ function AnglePill({ angle }) {
   const hex = ANGLE_HEX[angle] ?? '#64748B'
   return (
     <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ring-0"
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ring-0"
       style={{ backgroundColor: hex }}
     >
       {angle}
@@ -225,8 +225,8 @@ function levelPill(level, type) {
 function MetricPill({ label, value, type }) {
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="text-[9px] font-medium uppercase tracking-wide text-text-tertiary">{label}</span>
-      <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1', levelPill(value, type))}>
+      <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">{label}</span>
+      <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1', levelPill(value, type))}>
         {value}
       </span>
     </div>
@@ -258,7 +258,7 @@ function RecommendationCard({ rec }) {
           {String(rec.rank).padStart(2, '0')}
         </div>
         <AIScoreCircle score={rec.score} />
-        <span className={cn('inline-flex items-center rounded-full px-1.5 py-0.5 text-center text-[9px] font-semibold ring-1 leading-tight', oppColor)}>
+        <span className={cn('inline-flex items-center rounded-full px-1.5 py-0.5 text-center text-[10px] font-semibold ring-1 leading-tight', oppColor)}>
           {oppLabel}
         </span>
       </div>
@@ -274,7 +274,7 @@ function RecommendationCard({ rec }) {
           </div>
         )}
         {rec.isVideo && rec.duration && (
-          <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+          <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
             {rec.duration}
           </span>
         )}
@@ -344,7 +344,7 @@ function QuickActionBar() {
     <div className={cn(
       'fixed inset-x-0 bottom-0 z-20 border-t border-border-default bg-white/95 shadow-lg backdrop-blur-sm',
       'transition-all duration-200',
-      sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-60',
+      sidebarCollapsed ? 'lg:pl-14' : 'lg:pl-56',
     )}>
       <div className="flex items-stretch gap-0 overflow-x-auto divide-x divide-border-default">
         {QUICK_ACTIONS.map(({ id, icon: Icon, title, sub, to, action }) => {
@@ -363,7 +363,7 @@ function QuickActionBar() {
                 <Icon size={16} className="text-primary-600" />
               </div>
               <span className="text-xs font-semibold text-text-primary leading-tight">{title}</span>
-              <span className="text-[10px] leading-tight text-text-tertiary">{sub}</span>
+              <span className="text-[11px] leading-tight text-text-tertiary">{sub}</span>
             </button>
           )
         })}
@@ -536,7 +536,7 @@ export default function RecommendationsPage() {
                       className="aspect-[4/3] w-full object-cover transition-transform group-hover:scale-105"
                     />
                   </div>
-                  <p className="mt-1 truncate text-center text-[10px] font-medium text-text-secondary">
+                  <p className="mt-1 truncate text-center text-[11px] font-medium text-text-secondary">
                     {ad.comp}
                   </p>
                 </div>

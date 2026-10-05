@@ -30,7 +30,7 @@ export default function AdsKPIs({ summary, isLoading }) {
   const cards = [
     {
       title:     'Total Ads',
-      value:     s.total ?? 1248,
+      value:     s.total,
       icon:      Layers,
       iconBg:    'bg-primary-50',
       iconColor: 'text-primary-500',
@@ -38,31 +38,31 @@ export default function AdsKPIs({ summary, isLoading }) {
     },
     {
       title:     'Analyzed',
-      value:     s.analyzed ?? 856,
+      value:     s.analyzed,
       icon:      CheckCircle2,
       iconBg:    'bg-success-50',
       iconColor: 'text-success-600',
-      note:      `(${s.analyzed_pct ?? 68.6}%) With AI analysis`,
+      note:      `(${s.analyzed_pct ?? 0}%) With AI analysis`,
     },
     {
       title:     'Pending Analysis',
-      value:     s.pending ?? 292,
+      value:     s.pending,
       icon:      Clock,
       iconBg:    'bg-warning-50',
       iconColor: 'text-warning-600',
-      note:      `(${s.pending_pct ?? 23.4}%) Awaiting analysis`,
+      note:      `(${s.pending_pct ?? 0}%) Awaiting analysis`,
     },
     {
       title:     'Low Confidence',
-      value:     s.low_confidence ?? 67,
+      value:     s.low_confidence,
       icon:      AlertCircle,
       iconBg:    'bg-danger-50',
       iconColor: 'text-danger-600',
-      note:      `(${s.low_conf_pct ?? 5.4}%) Needs review`,
+      note:      `(${s.low_conf_pct ?? 0}%) Needs review`,
     },
     {
       title:     'This Week',
-      value:     s.this_week ?? 124,
+      value:     s.this_week,
       icon:      Calendar,
       iconBg:    'bg-blue-50',
       iconColor: 'text-blue-600',
@@ -71,7 +71,7 @@ export default function AdsKPIs({ summary, isLoading }) {
   ]
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="stagger grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {cards.map((c) => <KPICard key={c.title} {...c} />)}
     </div>
   )

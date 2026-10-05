@@ -60,7 +60,7 @@ export default function FacebookExplorerPage() {
         }
       />
 
-      <p className="text-[10px] text-text-tertiary italic">
+      <p className="text-[11px] text-text-tertiary italic">
         This page shows raw Facebook API data for the Decoinks account. Nothing here is stored yet — we are inspecting what's available.
       </p>
 
@@ -94,10 +94,10 @@ export default function FacebookExplorerPage() {
         {/* Ad Accounts */}
         {status?.ad_accounts?.ok && status.ad_accounts.accounts?.length > 0 && (
           <div className="mt-3 border-t border-border-default pt-3">
-            <p className="text-[10px] font-semibold text-text-secondary mb-1">Available Ad Accounts:</p>
+            <p className="text-[11px] font-semibold text-text-secondary mb-1">Available Ad Accounts:</p>
             <div className="space-y-1">
               {status.ad_accounts.accounts.map((acc) => (
-                <div key={acc.id} className="text-[10px] text-text-primary">
+                <div key={acc.id} className="text-[11px] text-text-primary">
                   <span className="font-mono">{acc.id}</span> — {acc.name || acc.business_name || 'Unnamed'} ({acc.currency})
                 </div>
               ))}
@@ -125,19 +125,19 @@ export default function FacebookExplorerPage() {
           <div className="border-t border-border-default px-5 py-4 space-y-3">
             {Object.entries(fields.groups || {}).map(([group, fieldList]) => (
               <div key={group}>
-                <p className="text-[10px] font-semibold text-text-secondary uppercase mb-1">{group}</p>
+                <p className="text-[11px] font-semibold text-text-secondary uppercase mb-1">{group}</p>
                 <div className="flex flex-wrap gap-1">
                   {fieldList.map((f, i) => (
-                    <span key={i} className="rounded bg-gray-100 px-2 py-0.5 text-[9px] font-mono text-text-primary">{f}</span>
+                    <span key={i} className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-mono text-text-primary">{f}</span>
                   ))}
                 </div>
               </div>
             ))}
             {adsResult?.dropped_fields?.length > 0 && (
               <div className="mt-3 p-2 rounded bg-amber-50">
-                <p className="text-[10px] font-semibold text-amber-700">Dropped Fields (permission errors):</p>
+                <p className="text-[11px] font-semibold text-amber-700">Dropped Fields (permission errors):</p>
                 {adsResult.dropped_fields.map((d, i) => (
-                  <p key={i} className="text-[9px] text-amber-600">{d.reason}</p>
+                  <p key={i} className="text-[10px] text-amber-600">{d.reason}</p>
                 ))}
               </div>
             )}
@@ -159,7 +159,7 @@ export default function FacebookExplorerPage() {
         ) : adsResult && !adsResult.ok ? (
           <div className="px-5 py-6 text-center">
             <p className="text-xs text-red-600">{adsResult.error}</p>
-            {adsResult.code && <p className="text-[10px] text-text-tertiary">Code: {adsResult.code}</p>}
+            {adsResult.code && <p className="text-[11px] text-text-tertiary">Code: {adsResult.code}</p>}
           </div>
         ) : ads.length === 0 && !adsLoading ? (
           <div className="px-5 py-10 text-center text-xs text-text-secondary">No ads found</div>
@@ -184,7 +184,7 @@ export default function FacebookExplorerPage() {
                       <td className="px-4 py-2.5 max-w-[200px] truncate font-medium">{ad.name || ad.id}</td>
                       <td className="px-4 py-2.5">
                         <span className={cn(
-                          'rounded-full px-2 py-0.5 text-[9px] font-semibold',
+                          'rounded-full px-2 py-0.5 text-[10px] font-semibold',
                           ad.effective_status === 'ACTIVE' ? 'bg-green-50 text-green-700' :
                           ad.effective_status === 'PAUSED' ? 'bg-amber-50 text-amber-700' :
                           'bg-gray-100 text-gray-600'
@@ -194,7 +194,7 @@ export default function FacebookExplorerPage() {
                       </td>
                       <td className="px-4 py-2.5 text-text-secondary truncate max-w-[150px]">{ad.campaign?.name || '—'}</td>
                       <td className="px-4 py-2.5 text-right">{ad._insights?.impressions || '—'}</td>
-                      <td className="px-4 py-2.5 text-right">{ad._insights?.spend ? `$${ad._insights.spend}` : (ad._insights_error ? <span className="text-red-500 text-[9px]" title={ad._insights_error}>⚠ Error</span> : '—')}</td>
+                      <td className="px-4 py-2.5 text-right">{ad._insights?.spend ? `$${ad._insights.spend}` : (ad._insights_error ? <span className="text-red-500 text-[10px]" title={ad._insights_error}>⚠ Error</span> : '—')}</td>
                       <td className="px-4 py-2.5 text-center">
                         <button
                           onClick={() => setExpandedAd(expandedAd === ad.id ? null : ad.id)}

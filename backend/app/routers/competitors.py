@@ -21,6 +21,8 @@ from app.schemas.competitor import (
 )
 
 
+from app.services.winning import winning_ad_filter
+
 router = APIRouter(prefix="/competitors", tags=["competitors"])
 
 
@@ -44,10 +46,10 @@ async def _compute_stats_for_competitor(
     )
     existing = (await db.execute(existing_stmt)).scalar() or 0
 
-    # Removed = flagged
+    # Removed = taken down by the advertiser (set by the scraper)
     removed_stmt = select(func.count(Ad.id)).where(
         Ad.competitor_id == competitor_id,
-        Ad.status == "flagged",
+        Ad.status == "removed",
     )
     removed = (await db.execute(removed_stmt)).scalar() or 0
 
@@ -60,14 +62,10 @@ async def _compute_stats_for_competitor(
     )
     running_7_plus = (await db.execute(running_stmt)).scalar() or 0
 
-    # Winning ads (confidence >= 85)
-    winning_stmt = (
-        select(func.count(AdAnalysis.id))
-        .join(Ad, Ad.id == AdAnalysis.ad_id)
-        .where(
-            Ad.competitor_id == competitor_id,
-            AdAnalysis.confidence_score >= 85,
-        )
+    # Winning ads: still active after more than 30 days
+    winning_stmt = select(func.count(Ad.id)).where(
+        Ad.competitor_id == competitor_id,
+        winning_ad_filter(),
     )
     winning = (await db.execute(winning_stmt)).scalar() or 0
 
@@ -150,15 +148,24 @@ async def get_competitors_summary(
     total_stmt = select(func.count(AdAnalysis.id))
     total_analyzed = (await db.execute(total_stmt)).scalar() or 0
 
-    # Existing
-    existing_stmt = select(func.count(Ad.id)).where(
-        Ad.status.in_(["approved", "pending"])
-    )
-    existing = (await db.execute(existing_stmt)).scalar() or 0
+    # Competitors tracked (own brand is not a competitor)
+    competitors_stmt = select(func.count(Competitor.id)).where(Competitor.is_own_brand == False)  # noqa: E712
+    total_competitors = (await db.execute(competitors_stmt)).scalar() or 0
+    active_competitors = (await db.execute(
+        competitors_stmt.where(Competitor.status == "Active")
+    )).scalar() or 0
 
-    # Removed
-    removed_stmt = select(func.count(Ad.id)).where(Ad.status == "flagged")
-    removed = (await db.execute(removed_stmt)).scalar() or 0
+    def competitor_ads(*conditions):
+        return (
+            select(func.count(Ad.id))
+            .join(Competitor, Competitor.id == Ad.competitor_id)
+            .where(Competitor.is_own_brand == False, *conditions)  # noqa: E712
+        )
+
+    # Existing / removed, both as a share of every competitor ad we hold
+    total_ads = (await db.execute(competitor_ads())).scalar() or 0
+    existing = (await db.execute(competitor_ads(Ad.status.in_(["approved", "pending"])))).scalar() or 0
+    removed = (await db.execute(competitor_ads(Ad.status == "removed"))).scalar() or 0
 
     # Running 7+ days
     week_ago = datetime.now(timezone.utc) - timedelta(days=7)
@@ -168,9 +175,11 @@ async def get_competitors_summary(
     )
     running_7_plus = (await db.execute(running_stmt)).scalar() or 0
 
-    # Winning
-    winning_stmt = select(func.count(AdAnalysis.id)).where(
-        AdAnalysis.confidence_score >= 85
+    # Winning: still active after more than 30 days (competitors only)
+    winning_stmt = (
+        select(func.count(Ad.id))
+        .join(Competitor, Competitor.id == Ad.competitor_id)
+        .where(Competitor.is_own_brand == False, winning_ad_filter())  # noqa: E712
     )
     winning = (await db.execute(winning_stmt)).scalar() or 0
 
@@ -194,14 +203,17 @@ async def get_competitors_summary(
         total_ads_analyzed=total_analyzed,
         total_ads_trend=0.0,
         existing_ads=existing,
-        existing_ads_pct=pct(existing, total_analyzed),
+        existing_ads_pct=pct(existing, total_ads),
         removed_ads=removed,
-        removed_ads_pct=pct(removed, total_analyzed),
+        removed_ads_pct=pct(removed, total_ads),
         running_7_plus=running_7_plus,
         running_7_plus_pct=pct(running_7_plus, existing) if existing else 0.0,
         winning_ads=winning,
         winning_ads_pct=pct(winning, existing) if existing else 0.0,
         avg_duration=avg_duration,
+        total_competitors=total_competitors,
+        active_competitors=active_competitors,
+        total_ads=total_ads,
     )
 
 

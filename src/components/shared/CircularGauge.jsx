@@ -10,9 +10,9 @@
 import { cn } from '../../lib/utils'
 
 const SIZE_MAP = {
-  xs:  { px: 40,  stroke: 4,  textCls: 'text-[10px]', subCls: 'text-[8px]'  },
-  sm:  { px: 56,  stroke: 5,  textCls: 'text-xs',     subCls: 'text-[9px]'  },
-  md:  { px: 80,  stroke: 6,  textCls: 'text-sm',     subCls: 'text-[10px]' },
+  xs:  { px: 40,  stroke: 4,  textCls: 'text-[11px]', subCls: 'text-[8px]'  },
+  sm:  { px: 56,  stroke: 5,  textCls: 'text-xs',     subCls: 'text-[10px]'  },
+  md:  { px: 80,  stroke: 6,  textCls: 'text-sm',     subCls: 'text-[11px]' },
   lg:  { px: 112, stroke: 8,  textCls: 'text-base',   subCls: 'text-xs'     },
   xl:  { px: 160, stroke: 10, textCls: 'text-xl',     subCls: 'text-xs'     },
 }

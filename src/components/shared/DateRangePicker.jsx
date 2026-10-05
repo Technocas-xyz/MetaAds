@@ -84,7 +84,7 @@ function MonthGrid({ month, from, to, hover, onDayClick, onDayHover }) {
       {/* Week day headers */}
       <div className="grid grid-cols-7">
         {WEEK_DAYS.map((d) => (
-          <div key={d} className="py-1 text-center text-[10px] font-medium text-text-tertiary">
+          <div key={d} className="py-1 text-center text-[11px] font-medium text-text-tertiary">
             {d}
           </div>
         ))}
@@ -253,7 +253,7 @@ export default function DateRangePicker({
       >
         {/* Presets sidebar */}
         <div className="flex w-36 flex-col gap-0.5 border-r border-border-default py-3 px-2">
-          <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+          <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
             Quick select
           </p>
           {PRESETS.map((preset) => (

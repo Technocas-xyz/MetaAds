@@ -97,6 +97,9 @@ class CompetitorsSummary(BaseModel):
     winning_ads: int = 0
     winning_ads_pct: float = 0.0
     avg_duration: float = 0.0
+    total_competitors: int = 0
+    active_competitors: int = 0
+    total_ads: int = 0
 
 
 # Backwards-compat alias for old imports

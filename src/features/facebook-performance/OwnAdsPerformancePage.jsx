@@ -67,10 +67,10 @@ export default function OwnAdsPerformancePage() {
         }
       />
 
-      <p className="text-[10px] text-text-tertiary">Ads retrieved: {report.ads_total} | With insights: {report.ads_with_insights} | Without: {report.ads_without_insights} | Pages: {report.pages_fetched}</p>
+      <p className="text-[11px] text-text-tertiary">Ads retrieved: {report.ads_total} | With insights: {report.ads_with_insights} | Without: {report.ads_without_insights} | Pages: {report.pages_fetched}</p>
 
       {/* Summary Metrics */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <MetricCard label="Total Spend" value={summary.total_spend} format="currency" />
         <MetricCard label="Impressions" value={summary.total_impressions} format="count" />
         <MetricCard label="Reach" value={summary.total_reach} format="count" />
@@ -96,16 +96,16 @@ export default function OwnAdsPerformancePage() {
                 <div key={key} className="rounded-card border border-border-default bg-white p-4 shadow-card">
                   <div className="flex items-center gap-2 mb-2">
                     <div className={cn('rounded-lg p-1.5', meta.color)}><Icon size={14} /></div>
-                    <span className="text-[10px] font-semibold text-text-secondary">{meta.label}</span>
+                    <span className="text-[11px] font-semibold text-text-secondary">{meta.label}</span>
                   </div>
                   <p className="text-sm font-medium text-text-primary truncate">{ad.name}</p>
-                  <p className="text-[10px] text-text-tertiary">{ad.campaign}</p>
-                  <div className="mt-2 flex gap-3 text-[10px]">
+                  <p className="text-[11px] text-text-tertiary">{ad.campaign}</p>
+                  <div className="mt-2 flex gap-3 text-[11px]">
                     {ad.cost_per_convo > 0 && <span>Cost/Conv: {formatCurrency(ad.cost_per_convo)}</span>}
                     {ad.conversations > 0 && <span>Convos: {formatCount(ad.conversations)}</span>}
                     {ad.ctr > 0 && <span>CTR: {formatPercent(ad.ctr)}</span>}
                   </div>
-                  <p className="mt-1 text-[9px] text-text-tertiary">Score: {ad.score}/100</p>
+                  <p className="mt-1 text-[10px] text-text-tertiary">Score: {ad.score}/100</p>
                 </div>
               )
             })}
@@ -117,14 +117,14 @@ export default function OwnAdsPerformancePage() {
       {showMethodology && methodology && (
         <div className="rounded-card border border-border-default bg-white p-4 shadow-card text-xs">
           <h3 className="font-semibold text-text-primary mb-2">Scoring Methodology</h3>
-          <div className="grid grid-cols-2 gap-2 text-[10px]">
+          <div className="grid grid-cols-2 gap-2 text-[11px]">
             {Object.entries(methodology.scoring).map(([k, v]) => (
               <div key={k}><span className="text-text-tertiary">{k}:</span> <span>{v}</span></div>
             ))}
           </div>
           <div className="mt-3 border-t pt-2">
             <p className="font-semibold text-text-secondary">Eligibility:</p>
-            <p className="text-[10px] text-text-tertiary">{methodology.eligibility.rule}: ≥{methodology.eligibility.min_impressions} impressions OR ≥${methodology.eligibility.min_spend} spend OR ≥{methodology.eligibility.min_conversations} conversations</p>
+            <p className="text-[11px] text-text-tertiary">{methodology.eligibility.rule}: ≥{methodology.eligibility.min_impressions} impressions OR ≥${methodology.eligibility.min_spend} spend OR ≥{methodology.eligibility.min_conversations} conversations</p>
           </div>
         </div>
       )}
@@ -149,7 +149,7 @@ export default function OwnAdsPerformancePage() {
                   <td className="px-3 py-2">{ad.rank || '—'}</td>
                   <td className="px-3 py-2 max-w-[150px] truncate font-medium">{ad.name}</td>
                   <td className="px-3 py-2 truncate max-w-[100px] text-text-secondary">{ad.campaign}</td>
-                  <td className="px-3 py-2"><span className={cn('rounded-full px-1.5 py-0.5 text-[9px] font-semibold', ad.status === 'ACTIVE' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600')}>{ad.status}</span></td>
+                  <td className="px-3 py-2"><span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-semibold', ad.status === 'ACTIVE' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600')}>{ad.status}</span></td>
                   <td className="px-3 py-2">{formatCurrency(ad.spend)}</td>
                   <td className="px-3 py-2">{formatCount(ad.impressions)}</td>
                   <td className="px-3 py-2">{formatCount(ad.reach)}</td>
@@ -178,8 +178,8 @@ export default function OwnAdsPerformancePage() {
       {competitor_patterns?.has_data && (
         <div className="rounded-card border border-border-default bg-white p-5 shadow-card">
           <h3 className="text-sm font-semibold text-text-primary mb-3">Competitor Creative Patterns (for strategy comparison)</h3>
-          <p className="text-[10px] text-text-tertiary mb-3">Based on {competitor_patterns.winners_analyzed} competitor ads running 30+ days. Weighted by longevity. No competitor CTR/CPC/spend available.</p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-[10px]">
+          <p className="text-[11px] text-text-tertiary mb-3">Based on {competitor_patterns.winners_analyzed} competitor ads running 30+ days. Weighted by longevity. No competitor CTR/CPC/spend available.</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-[11px]">
             <div>
               <p className="text-text-tertiary font-medium">Top Hooks</p>
               {competitor_patterns.top_hooks?.slice(0, 3).map((h) => <p key={h.type} className="font-medium">{h.type} ({h.score})</p>)}

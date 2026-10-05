@@ -163,10 +163,10 @@ export default function AIRecommendPage() {
                 )}
                 {engine.name}
                 {!engine.configured && (
-                  <span className="text-[10px] text-red-400 ml-1">(Not configured)</span>
+                  <span className="text-[11px] text-red-400 ml-1">(Not configured)</span>
                 )}
                 {engine.configured && engine.model && (
-                  <span className="text-[10px] text-text-tertiary">{engine.model}</span>
+                  <span className="text-[11px] text-text-tertiary">{engine.model}</span>
                 )}
               </span>
             </button>
@@ -179,8 +179,8 @@ export default function AIRecommendPage() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold text-text-secondary">Prompt</h3>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-text-tertiary">~{promptTokenEstimate} tokens</span>
-            <button onClick={handleReset} className="text-[10px] text-primary-600 hover:underline flex items-center gap-1">
+            <span className="text-[11px] text-text-tertiary">~{promptTokenEstimate} tokens</span>
+            <button onClick={handleReset} className="text-[11px] text-primary-600 hover:underline flex items-center gap-1">
               <RotateCcw size={10} /> Reset
             </button>
           </div>
@@ -200,7 +200,7 @@ export default function AIRecommendPage() {
               <button
                 key={p.id}
                 onClick={() => setPrompt(context.default_prompt)}
-                className="rounded-full border border-border-default px-3 py-1 text-[10px] font-medium text-text-secondary hover:bg-gray-50"
+                className="rounded-full border border-border-default px-3 py-1 text-[11px] font-medium text-text-secondary hover:bg-gray-50"
               >
                 {p.name}
               </button>
@@ -249,11 +249,11 @@ export default function AIRecommendPage() {
               <div className="flex items-center justify-between border-b border-border-default px-4 py-2.5 bg-gray-50/50">
                 <div>
                   <span className="text-sm font-semibold text-text-primary">{r.name}</span>
-                  {r.model && <span className="text-[10px] text-text-tertiary ml-2">{r.model}</span>}
+                  {r.model && <span className="text-[11px] text-text-tertiary ml-2">{r.model}</span>}
                 </div>
                 <div className="flex items-center gap-2">
                   {r.duration > 0 && (
-                    <span className="text-[10px] text-text-tertiary flex items-center gap-0.5">
+                    <span className="text-[11px] text-text-tertiary flex items-center gap-0.5">
                       <Clock size={9} /> {r.duration}s
                     </span>
                   )}
@@ -299,11 +299,11 @@ export default function AIRecommendPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-text-primary truncate">{h.prompt_preview}</span>
-                    <span className="text-[10px] text-text-tertiary">{new Date(h.timestamp).toLocaleString()}</span>
+                    <span className="text-[11px] text-text-tertiary">{new Date(h.timestamp).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] text-text-secondary">{h.engines.join(', ')}</span>
-                    <span className="text-[10px] text-green-600">{h.success_count}/{h.results_count} succeeded</span>
+                    <span className="text-[11px] text-text-secondary">{h.engines.join(', ')}</span>
+                    <span className="text-[11px] text-green-600">{h.success_count}/{h.results_count} succeeded</span>
                   </div>
                 </button>
               ))}

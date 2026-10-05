@@ -30,7 +30,7 @@ const STATUS_MAP = {
 }
 
 const SIZE_MAP = {
-  xs: 'px-1.5 py-0   text-[10px] rounded',
+  xs: 'px-1.5 py-0   text-[11px] rounded',
   sm: 'px-2   py-0.5 text-[11px] rounded-full',
   md: 'px-2.5 py-0.5 text-xs     rounded-full',
 }

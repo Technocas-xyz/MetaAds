@@ -157,7 +157,7 @@ function OfferDonutCard({ data, total, isLoading }) {
               <span className="text-base font-bold leading-tight text-text-primary">
                 {total.toLocaleString()}
               </span>
-              <span className="text-[10px] text-text-secondary">Mentions</span>
+              <span className="text-[11px] text-text-secondary">Mentions</span>
             </div>
           </div>
           <ul className="flex-1 space-y-1.5 overflow-hidden">
@@ -373,7 +373,7 @@ function CompetitorAvatars({ competitors, extra }) {
         <div
           key={c.id}
           title={c.name}
-          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white"
+          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-white"
           style={{
             backgroundColor: AVATAR_BG[Number(c.id) % AVATAR_BG.length],
             zIndex: competitors.length - i,
@@ -384,7 +384,7 @@ function CompetitorAvatars({ competitors, extra }) {
       ))}
       {extra > 0 && (
         <div
-          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-[9px] font-bold text-gray-600"
+          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-[10px] font-bold text-gray-600"
           style={{ zIndex: 0 }}
         >
           +{extra}
@@ -457,7 +457,7 @@ function OffersTable({ rows, total, page, pageSize, onPageChange, onPageSizeChan
                       {row.text}
                     </span>
                     {row.rank === 1 && (
-                      <span className="mt-0.5 inline-flex flex-shrink-0 items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 ring-1 ring-primary-200">
+                      <span className="mt-0.5 inline-flex flex-shrink-0 items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700 ring-1 ring-primary-200">
                         Top
                       </span>
                     )}
@@ -551,7 +551,7 @@ function OffersTable({ rows, total, page, pageSize, onPageChange, onPageSizeChan
                     <div className="mt-1.5 flex items-center gap-2">
                       <OfferTypePill type={row.type} />
                       {row.rank === 1 && (
-                        <span className="inline-flex items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 ring-1 ring-primary-200">
+                        <span className="inline-flex items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700 ring-1 ring-primary-200">
                           Top
                         </span>
                       )}
@@ -695,7 +695,7 @@ function OfferDetailDrawer({ offer, onClose }) {
                     },
                   ].map(({ label, value, colorCls }) => (
                     <div key={label} className="rounded-lg border border-border-default p-3 text-center">
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
                         {label}
                       </p>
                       <p className={cn('mt-1 text-xl font-bold text-text-primary', colorCls)}>
@@ -849,7 +849,7 @@ export default function OfferLibraryPage() {
   const discShare  = summary?.discount_heavy_share ?? 0
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <Breadcrumb />
 
       <PageHeader
@@ -864,7 +864,7 @@ export default function OfferLibraryPage() {
       />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-5">
         {sumLoading
           ? Array.from({ length: 5 }).map((_, i) => <KPIShimmer key={i} />)
           : (
@@ -896,11 +896,11 @@ export default function OfferLibraryPage() {
               />
 
               {/* Discount-Heavy Share — custom with mini progress bar */}
-              <div className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+              <div className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 w-full">
-                    <p className="text-sm font-medium text-text-secondary">Discount-Heavy Share</p>
-                    <p className="mt-2 text-3xl font-bold tracking-tight text-text-primary">
+                    <p className="text-xs font-medium text-text-secondary">Discount-Heavy Share</p>
+                    <p className="mt-0.5 text-2xl font-semibold leading-tight tracking-tight tabular-nums text-text-primary">
                       {discShare}%
                     </p>
                     <div className="mt-2 flex items-center gap-2">
@@ -913,17 +913,17 @@ export default function OfferLibraryPage() {
                       <span className="flex-shrink-0 text-xs text-text-tertiary">of all mentions</span>
                     </div>
                   </div>
-                  <div className="flex-shrink-0 rounded-xl bg-red-50 p-2.5">
+                  <div className="flex-shrink-0 rounded-lg bg-red-50 p-2">
                     <Percent size={22} className="text-red-500" />
                   </div>
                 </div>
               </div>
 
               {/* Trending Offer Format — custom */}
-              <div className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+              <div className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-text-secondary">Trending Offer Format</p>
+                    <p className="text-xs font-medium text-text-secondary">Trending Offer Format</p>
                     <div className="mt-2 flex items-center gap-1.5">
                       <OfferTypePill type={summary?.trending_offer?.type ?? ''} />
                     </div>
@@ -931,7 +931,7 @@ export default function OfferLibraryPage() {
                       {summary?.trending_offer?.text ?? '—'}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold text-success-700 ring-1 ring-success-200">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-[11px] font-semibold text-success-700 ring-1 ring-success-200">
                         <TrendingUp size={9} />
                         Trending
                       </span>
@@ -940,8 +940,8 @@ export default function OfferLibraryPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex-shrink-0 rounded-xl bg-success-50 p-2.5">
-                    <TrendingUp size={22} className="text-success-600" />
+                  <div className="flex-shrink-0 rounded-lg bg-success-50 p-2">
+                    <TrendingUp size={18} className="text-success-600" />
                   </div>
                 </div>
               </div>

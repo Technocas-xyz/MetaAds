@@ -16,14 +16,14 @@ function CampaignCard({ campaign, onClick }) {
 
   return (
     <div
-      className="cursor-pointer rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover"
+      className="cursor-pointer rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card"
       onClick={() => onClick(campaign.id)}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50">
           <Play size={16} className="ml-0.5 text-primary-600" />
         </div>
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.cls}`}>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.cls}`}>
           {status.label}
         </span>
       </div>
@@ -39,7 +39,7 @@ function CampaignCard({ campaign, onClick }) {
           { label: 'Conversions', value: campaign.conversions                                          },
         ].map(({ label, value, color }) => (
           <div key={label}>
-            <p className="text-[10px] text-text-tertiary">{label}</p>
+            <p className="text-[11px] text-text-tertiary">{label}</p>
             <p className={`text-xs font-semibold ${color ?? 'text-text-primary'}`}>{value}</p>
           </div>
         ))}
@@ -54,7 +54,7 @@ export default function CampaignsPage() {
   const campaigns = Array.isArray(data) ? data : (data?.data ?? [])
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <Breadcrumb />
 
       <div className="flex flex-wrap items-start justify-between gap-4">

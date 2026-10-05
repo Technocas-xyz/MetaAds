@@ -27,7 +27,7 @@ export function PlatformBadge({ platform }) {
   const cfg = PLATFORM_CFG[platform] ?? { bg: '#64748B', label: '?' }
   return (
     <span
-      className="inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[9px] font-bold text-white leading-none"
+      className="inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-bold text-white leading-none"
       style={{ backgroundColor: cfg.bg }}
     >
       {cfg.label}
@@ -38,7 +38,7 @@ export function PlatformBadge({ platform }) {
 export function TierBadge({ tier }) {
   return (
     <span className={cn(
-      'inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ring-1',
+      'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1',
       tier === 1 ? 'bg-amber-50 text-amber-700 ring-amber-200'
         : tier === 2 ? 'bg-slate-50 text-slate-600 ring-slate-200'
         : 'bg-gray-50 text-gray-500 ring-gray-200',
@@ -66,7 +66,7 @@ export function ConfidenceRing({ score }) {
         />
       </svg>
       <div className="absolute flex flex-col items-center leading-none">
-        <span className="text-[10px] font-bold text-text-primary">{score}%</span>
+        <span className="text-[11px] font-bold text-text-primary">{score}%</span>
         <span className="mt-0.5 text-[8px] text-text-secondary">{label}</span>
       </div>
     </div>
@@ -84,18 +84,18 @@ const INSIGHT_ROWS = [
 
 export function InsightsMiniGrid({ insights }) {
   return (
-    <div className="grid grid-cols-2 gap-x-5 gap-y-1.5">
+    <div className="grid min-w-[300px] grid-cols-2 gap-x-4 gap-y-1">
       {INSIGHT_ROWS.map(({ key, label, badge }) => {
         const val = insights[key]?.value ?? '—'
         return (
           <div key={key} className="flex min-w-0 items-center gap-1.5">
-            <span className="w-12 flex-shrink-0 text-[10px] text-text-tertiary">{label}</span>
+            <span className="w-14 flex-shrink-0 whitespace-nowrap text-[11px] text-text-tertiary">{label}</span>
             {badge === 'hook' ? (
               <HookTypeBadge type={val} />
             ) : badge === 'truncate' ? (
-              <span className="max-w-[110px] truncate text-[11px] font-medium text-text-primary">{val}</span>
+              <span className="min-w-0 truncate text-[11px] font-medium text-text-primary" title={val}>{val}</span>
             ) : (
-              <span className="text-[11px] font-medium text-text-primary">{val}</span>
+              <span className="min-w-0 truncate text-[11px] font-medium text-text-primary" title={val}>{val}</span>
             )}
           </div>
         )
@@ -135,7 +135,7 @@ export function UserAvatar({ user }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
       <div
-        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
         style={{ backgroundColor: user.color }}
       >
         {user.initials}
@@ -186,7 +186,7 @@ function ExpandableInsightsRow({ row, colSpan }) {
 function TabBadge({ count, active }) {
   return (
     <span className={cn(
-      'ml-1.5 inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+      'ml-1.5 inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold',
       active ? 'bg-primary-600 text-white' : 'bg-gray-100 text-text-secondary',
     )}>
       {count}
@@ -448,7 +448,7 @@ export default function ReviewQueueTable({ items = [], loading = false, summary 
                                 </span>
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   <TierBadge tier={row.competitor.tier} />
-                                  <span className="text-[10px] text-text-tertiary">{row.competitor.region}</span>
+                                  <span className="text-[11px] text-text-tertiary">{row.competitor.region}</span>
                                 </div>
                               </div>
                             </td>

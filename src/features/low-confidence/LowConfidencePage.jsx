@@ -28,11 +28,11 @@ function KPIShimmer() {
 function BucketCard({ label, range, count, total, barColor, badgeColor }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
   return (
-    <div className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+    <div className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-text-secondary">{label}</p>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-text-primary">{count}</p>
+          <p className="text-xs font-medium text-text-secondary">{label}</p>
+          <p className="mt-0.5 text-2xl font-semibold leading-tight tracking-tight tabular-nums text-text-primary">{count}</p>
           <div className="mt-2 space-y-1">
             <p className="text-xs text-text-tertiary">{pct}% of low-conf queue</p>
             <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
@@ -40,7 +40,7 @@ function BucketCard({ label, range, count, total, barColor, badgeColor }) {
             </div>
           </div>
         </div>
-        <span className={`flex-shrink-0 rounded-lg px-2 py-1 text-[10px] font-bold text-white ${badgeColor}`}>
+        <span className={`flex-shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold text-white ${badgeColor}`}>
           {range}
         </span>
       </div>
@@ -53,8 +53,8 @@ function AvgConfCard({ avg }) {
   const circ = 2 * Math.PI * r
   const off  = circ - (avg / 100) * circ
   return (
-    <div className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
-      <p className="text-sm font-medium text-text-secondary">Avg Confidence</p>
+    <div className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
+      <p className="text-xs font-medium text-text-secondary">Avg Confidence</p>
       <div className="mt-3 flex items-center gap-3">
         <div className="relative inline-flex items-center justify-center">
           <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
@@ -129,7 +129,7 @@ export default function LowConfidencePage() {
   ], [lowItems, b0_20, b21_40, b41_th])
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5">
       <Breadcrumb />
 
       <PageHeader
@@ -160,7 +160,7 @@ export default function LowConfidencePage() {
       </div>
 
       {/* KPI cards — confidence buckets */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-5">
         {isLoading
           ? Array.from({ length: 5 }).map((_, i) => <KPIShimmer key={i} />)
           : (
@@ -191,15 +191,15 @@ export default function LowConfidencePage() {
               />
               <AvgConfCard avg={avgConf} />
               {/* Total */}
-              <div className="rounded-card border border-border-default bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+              <div className="rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-text-secondary">Total Low Conf</p>
-                    <p className="mt-2 text-3xl font-bold tracking-tight text-text-primary">{lowItems.length}</p>
+                    <p className="text-xs font-medium text-text-secondary">Total Low Conf</p>
+                    <p className="mt-0.5 text-2xl font-semibold leading-tight tracking-tight tabular-nums text-text-primary">{lowItems.length}</p>
                     <p className="mt-1 text-xs font-medium text-text-tertiary">Require review</p>
                   </div>
-                  <div className="flex-shrink-0 rounded-xl bg-red-50 p-2.5">
-                    <AlertTriangle size={22} className="text-red-500" />
+                  <div className="flex-shrink-0 rounded-lg bg-red-50 p-2">
+                    <AlertTriangle size={18} className="text-red-500" />
                   </div>
                 </div>
               </div>

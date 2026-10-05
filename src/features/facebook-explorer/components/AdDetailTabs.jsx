@@ -131,8 +131,8 @@ function MessagingTab({ actions, costPerAction, ins }) {
 
       {/* Derived Metrics */}
       <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/30 p-3">
-        <p className="text-[9px] font-semibold text-amber-700 uppercase mb-2">Derived Metrics <span className="font-normal">(Calculated from Meta API values)</span></p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 text-[10px]">
+        <p className="text-[10px] font-semibold text-amber-700 uppercase mb-2">Derived Metrics <span className="font-normal">(Calculated from Meta API values)</span></p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 text-[11px]">
           <div>
             <span className="text-text-tertiary">Welcome→Conversation: </span>
             <span className="font-medium">{welcome > 0 ? formatPercent((convStarted / welcome) * 100) : '—'}</span>
@@ -201,7 +201,7 @@ function CreativeTab({ cr, ad }) {
       {/* Body text with preserved line breaks */}
       {(cr.body || linkData.message) && (
         <div>
-          <p className="text-[10px] font-semibold text-text-secondary mb-1">Primary Text / Body</p>
+          <p className="text-[11px] font-semibold text-text-secondary mb-1">Primary Text / Body</p>
           <div className="rounded-lg border border-border-default bg-white p-3 text-xs text-text-primary whitespace-pre-wrap leading-relaxed">
             {cr.body || linkData.message}
           </div>
@@ -211,7 +211,7 @@ function CreativeTab({ cr, ad }) {
       {/* Page Welcome Message */}
       {pageWelcome && (
         <div>
-          <p className="text-[10px] font-semibold text-text-secondary mb-1">Page Welcome Message</p>
+          <p className="text-[11px] font-semibold text-text-secondary mb-1">Page Welcome Message</p>
           <div className="rounded-lg border border-border-default bg-blue-50/30 p-3 space-y-2 text-xs">
             {(() => {
               try {
@@ -229,7 +229,7 @@ function CreativeTab({ cr, ad }) {
                         <span className="text-text-tertiary">Ice Breakers:</span>
                         <ul className="ml-3 mt-1 space-y-1">
                           {parsed.ice_breakers.map((ib, i) => (
-                            <li key={i} className="text-[10px]">
+                            <li key={i} className="text-[11px]">
                               <span className="font-medium">Q:</span> {ib.question}
                               {ib.answer && <span className="text-text-tertiary ml-2">A: {ib.answer}</span>}
                             </li>
@@ -240,7 +240,7 @@ function CreativeTab({ cr, ad }) {
                   </>
                 )
               } catch {
-                return <pre className="text-[9px] text-text-tertiary overflow-auto">{JSON.stringify(pageWelcome, null, 2)}</pre>
+                return <pre className="text-[10px] text-text-tertiary overflow-auto">{JSON.stringify(pageWelcome, null, 2)}</pre>
               }
             })()}
           </div>

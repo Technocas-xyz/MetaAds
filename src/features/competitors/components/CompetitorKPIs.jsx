@@ -1,5 +1,5 @@
 import {
-  BarChart2, CheckCircle2, XCircle, Timer, Trophy, Clock,
+  BarChart2, CheckCircle2, XCircle, Timer, Trophy, Clock, Users2,
 } from 'lucide-react'
 import KPICard from '../../../components/ui/KPICard'
 
@@ -21,8 +21,8 @@ function Skeleton() {
 export default function CompetitorKPIs({ summary, isLoading }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} />)}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
+        {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} />)}
       </div>
     )
   }
@@ -31,49 +31,56 @@ export default function CompetitorKPIs({ summary, isLoading }) {
 
   const cards = [
     {
-      title:     'Total Ads Analyzed',
-      value:     s.total_ads_analyzed ?? 12842,
+      title:     'Competitors',
+      value:     s.total_competitors,
+      icon:      Users2,
+      iconBg:    'bg-blue-50',
+      iconColor: 'text-blue-600',
+      note:      `${s.active_competitors ?? 0} active`,
+    },
+    {
+      title:     'Total Ads',
+      value:     s.total_ads,
       icon:      BarChart2,
       iconBg:    'bg-primary-50',
       iconColor: 'text-primary-500',
-      trend:     s.total_ads_trend ?? 18.6,
-      trendUp:   true,
+      note:      `${(s.total_ads_analyzed ?? 0).toLocaleString()} analyzed by AI`,
     },
     {
       title:     'Existing Ads',
-      value:     s.existing_ads ?? 8756,
+      value:     s.existing_ads,
       icon:      CheckCircle2,
       iconBg:    'bg-success-50',
       iconColor: 'text-success-600',
-      note:      `${s.existing_ads_pct ?? 68.2}% of analyzed`,
+      note:      `${s.existing_ads_pct ?? 0}% of all ads`,
     },
     {
       title:     'Removed Ads',
-      value:     s.removed_ads ?? 4086,
+      value:     s.removed_ads,
       icon:      XCircle,
       iconBg:    'bg-danger-50',
       iconColor: 'text-danger-600',
-      note:      `${s.removed_ads_pct ?? 31.8}% of analyzed`,
+      note:      `${s.removed_ads_pct ?? 0}% of all ads`,
     },
     {
       title:     'Ads Running 7+ Days',
-      value:     s.running_7_plus ?? 6342,
+      value:     s.running_7_plus,
       icon:      Timer,
       iconBg:    'bg-warning-50',
       iconColor: 'text-warning-600',
-      note:      `${s.running_7_plus_pct ?? 49.4}% of existing`,
+      note:      `${s.running_7_plus_pct ?? 0}% of existing`,
     },
     {
       title:     'Winning Ads',
-      value:     s.winning_ads ?? 2153,
+      value:     s.winning_ads,
       icon:      Trophy,
       iconBg:    'bg-amber-50',
       iconColor: 'text-amber-600',
-      note:      `${s.winning_ads_pct ?? 24.6}% of existing`,
+      note:      `Active 30+ days · ${s.winning_ads_pct ?? 0}% of existing`,
     },
     {
       title:     'Avg Ad Duration',
-      value:     `${s.avg_duration ?? 14.6}`,
+      value:     `${s.avg_duration ?? 0}`,
       icon:      Clock,
       iconBg:    'bg-slate-50',
       iconColor: 'text-slate-500',
@@ -82,7 +89,7 @@ export default function CompetitorKPIs({ summary, isLoading }) {
   ]
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="stagger grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
       {cards.map((card) => (
         <KPICard key={card.title} {...card} />
       ))}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Clock, CheckCircle2, XCircle, Loader2, Power } from 'lucide-react'
 import { getScheduleStatus, toggleSchedule } from '../../../api/scraper'
 import toast from 'react-hot-toast'
+import MetaSessionControl from './MetaSessionControl'
 
 export default function ScheduleStatusBar() {
   const [status, setStatus] = useState(null)
@@ -98,6 +99,8 @@ export default function ScheduleStatusBar() {
           </span>
         </>
       )}
+
+      <MetaSessionControl />
     </div>
   )
 }
