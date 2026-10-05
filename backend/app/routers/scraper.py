@@ -33,7 +33,7 @@ from app.schemas.scraper import (
     ScrapedAdsListResponse,
     ScrapeRunResponse,
 )
-from app.services.scraper_service import scrape_competitor
+from app.services.scraper_service import scrape_competitor, scrape_in_batch
 from app.services.analysis_service import run_analysis
 
 
@@ -506,8 +506,12 @@ _batch_progress = {"total": 0, "completed": 0, "failed": 0, "current": None}
 _scraping_competitors: set = set()  # Track in-progress scrapes to prevent duplicates
 
 
-async def _run_batch_scrape():
-    """Run scrapes for all active competitors sequentially in background."""
+async def _run_batch_scrape(skip_recent_hours: float = 0):
+    """Run scrapes for all active competitors sequentially in background.
+
+    skip_recent_hours > 0 resumes an interrupted batch: competitors with a
+    successful scrape inside that window are left alone.
+    """
     global _batch_running, _batch_progress
     _batch_running = True
 
@@ -518,6 +522,10 @@ async def _run_batch_scrape():
                 Competitor.is_own_brand == False,
             ).order_by(Competitor.name)
             competitors = (await db.execute(stmt)).scalars().all()
+
+        if skip_recent_hours > 0:
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=skip_recent_hours)
+            competitors = [c for c in competitors if not c.last_run or c.last_run < cutoff]
 
         total = len(competitors)
         _batch_progress = {"total": total, "completed": 0, "failed": 0, "current": None}
@@ -531,8 +539,9 @@ async def _run_batch_scrape():
             _batch_progress["current"] = comp.name
             scrape_all_job.current = comp.name
             try:
-                async with AsyncSessionLocal() as db:
-                    await scrape_competitor(comp.id, db, trigger="batch")
+                await scrape_in_batch(
+                    comp.id, "batch", should_abort=lambda: scrape_all_job.state.value == "stopped"
+                )
                 _batch_progress["completed"] += 1
                 scrape_all_job.completed += 1
             except Exception as e:
@@ -558,6 +567,7 @@ async def _run_batch_scrape():
 
 @router.post("/scrape-all", status_code=202)
 async def trigger_scrape_all(
+    skip_recent_hours: float = Query(0, ge=0, le=72, description="Skip competitors scraped within this many hours"),
     current_user: User = Depends(get_current_user),
 ):
     """Start scraping ALL competitors sequentially in the background."""
@@ -565,7 +575,7 @@ async def trigger_scrape_all(
         return {"status": "already_running", "job": scrape_all_job.to_dict()}
 
     scrape_all_job.reset()
-    _asyncio.create_task(_run_batch_scrape())
+    _asyncio.create_task(_run_batch_scrape(skip_recent_hours))
 
     return {
         "status": "started",

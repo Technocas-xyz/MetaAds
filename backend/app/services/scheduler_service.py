@@ -179,7 +179,7 @@ async def _run_daily_batch():
             logger.info(f"[scheduler] [{i}/{total}] Scraping: {comp.name}")
 
             try:
-                await run_scheduled_scrape(comp.id)
+                await run_scheduled_scrape(comp.id, should_abort=lambda: scrape_all_job.state.value == "stopped")
                 _current_run["completed"] += 1
                 scrape_all_job.completed += 1
                 logger.info(f"[scheduler] [{i}/{total}] ✓ {comp.name} done")

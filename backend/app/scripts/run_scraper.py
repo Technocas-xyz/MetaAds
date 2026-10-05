@@ -985,6 +985,8 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
         def time_left() -> bool:
             return elapsed() < time_budget - 120
 
+        coverage_complete = False
+
         # ── 1. Full listing ───────────────────────────────────────────────
         main = load(build_url(comp), "all")
         if main["cards"] == 0 and main["stop"] != "blocked":
@@ -1020,7 +1022,9 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                 load(build_url(comp, sort_mode="relevancy_monthly_grouped"), "sort=relevancy", scroll=False)
                 process_cards("sort=relevancy", require_id=True)
                 keyword_sweep(target)
-            complete = complete or (bool(target) and stats["covered_results"] >= target)
+            # Coverage is an estimate (shared-creative groups can be counted twice),
+            # so it never upgrades `complete`: removals must not rest on it.
+            coverage_complete = bool(target) and stats["covered_results"] >= target
 
         # An empty listing can't be told apart from a soft block (seen with
         # Blue Cotton: 0 cards while 57 of its ads were still running).
@@ -1063,9 +1067,10 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
             f"  Real IDs:          {stats['real_ids']}\n"
             f"  Synthetic IDs:     {stats['synth_ids']}\n"
             f"  Dates parsed:      {stats['dates']}\n"
-            f"  COMPLETE:          {complete}"
+            f"  COMPLETE:          {complete}\n"
+            f"  COVERAGE REACHED:  {coverage_complete or complete}"
         )
-        if not complete:
+        if not complete and not coverage_complete:
             logger.warning(
                 "  Partial scrape — ads missing from this run must NOT be treated as removed."
             )
@@ -1110,6 +1115,7 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
         "reported_total": main["reported_total"],
         "unique_ads": len(seen_ids),
         "covered_results": stats["covered_results"],
+        "coverage_complete": coverage_complete or complete,
         "rate_limited": any(l["pagination_rate_limited"] for l in loads),
         "blocked": any_blocked,
         "duration_seconds": int(elapsed()),

@@ -21,7 +21,7 @@ from datetime import datetime, timezone, date as date_type
 from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -305,9 +305,15 @@ async def scrape_competitor(
             and (existing_active_count == 0 or len(found_library_ids) >= existing_active_count * 0.3)
         )
 
+        # Ads Meta just confirmed as running on their own page are never removed here.
+        verified_active = set(scrape_meta.get("verified_active", []))
         if run_looks_healthy:
             for library_id, existing_ad in existing_map.items():
-                if library_id not in found_library_ids and existing_ad.status not in ("flagged", "removed"):
+                if (
+                    library_id not in found_library_ids
+                    and library_id not in verified_active
+                    and existing_ad.status not in ("flagged", "removed")
+                ):
                     existing_ad.status = "removed"
                     existing_ad.removed_at = datetime.now(timezone.utc)
                     # Freeze days_running at time of removal (don't keep counting up)
@@ -319,7 +325,7 @@ async def scrape_competitor(
                 f"NOT marking {existing_active_count} existing ads as ended (likely transient failure)"
             )
             print(f"[SCRAPER] WARNING: 0 ads returned, preserving {existing_active_count} existing ads")
-        elif not scrape_complete:
+        elif not scrape_complete and not scrape_meta.get("coverage_complete"):
             run.error_message = (
                 f"Partial scrape: {len(found_library_ids)} unique ads covering "
                 f"{scrape_meta.get('covered_results', '?')} of ~{scrape_meta.get('reported_total', '?')} results "
@@ -416,13 +422,58 @@ def _apply_verification(existing_map: Dict[str, Ad], scrape_meta: Dict[str, Any]
     return ended
 
 
-async def run_scheduled_scrape(competitor_id: UUID) -> None:
+# Meta answers with an empty listing for a while after many page loads from one
+# IP. Batches wait this out instead of burning through the remaining competitors.
+BLOCK_WAIT_SECONDS = 20 * 60
+BLOCK_MAX_RETRIES = 3
+COOLDOWN_RATIO = 0.15      # pause after each competitor, as a share of its scrape time
+COOLDOWN_MAX_SECONDS = 300
+
+
+async def scrape_in_batch(competitor_id: UUID, trigger: str, should_abort=None) -> Optional[ScrapeRun]:
+    """Scrape one competitor inside a batch: retry after a pause when Meta returns
+    an empty listing for an advertiser we know has ads, then cool down."""
+
+    async def wait(seconds: float) -> bool:
+        """Sleep in short steps; False if the batch was stopped meanwhile."""
+        waited = 0.0
+        while waited < seconds:
+            if should_abort and should_abort():
+                return False
+            await asyncio.sleep(min(15, seconds - waited))
+            waited += 15
+        return True
+
+    run = None
+    for attempt in range(BLOCK_MAX_RETRIES + 1):
+        async with AsyncSessionLocal() as db:
+            run = await scrape_competitor(competitor_id, db, trigger=trigger)
+            active = (await db.execute(
+                select(func.count(Ad.id)).where(
+                    Ad.competitor_id == competitor_id,
+                    Ad.status.notin_(["removed", "flagged"]),
+                )
+            )).scalar() or 0
+        looks_blocked = run.ads_found == 0 and active > 0
+        if not looks_blocked or attempt == BLOCK_MAX_RETRIES:
+            break
+        logger.warning(
+            f"[scraper] Empty listing for a competitor with {active} active ads — Meta is likely "
+            f"blocking. Waiting {BLOCK_WAIT_SECONDS // 60} min before retry {attempt + 1}/{BLOCK_MAX_RETRIES}."
+        )
+        if not await wait(BLOCK_WAIT_SECONDS):
+            return run
+
+    await wait(min(COOLDOWN_MAX_SECONDS, (run.duration_seconds or 0) * COOLDOWN_RATIO))
+    return run
+
+
+async def run_scheduled_scrape(competitor_id: UUID, should_abort=None) -> None:
     """Run a scrape in its own session — used by scheduler."""
-    async with AsyncSessionLocal() as db:
-        try:
-            await scrape_competitor(competitor_id, db, trigger="scheduled")
-        except Exception as e:
-            logger.error(f"Scheduled scrape failed for {competitor_id}: {e}")
+    try:
+        await scrape_in_batch(competitor_id, "scheduled", should_abort)
+    except Exception as e:
+        logger.error(f"Scheduled scrape failed for {competitor_id}: {e}")
 
 
 # ─── Playwright internals (ported from proven MetaAdLibraryTarget) ────────────
