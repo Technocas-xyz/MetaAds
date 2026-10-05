@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db, AsyncSessionLocal
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 from app.models.user import User
 from app.models.ad import Ad
 from app.models.ad_analysis import AdAnalysis
@@ -409,6 +409,70 @@ async def list_recent_runs(
     )
     runs = (await db.execute(stmt)).scalars().all()
     return [ScrapeRunResponse.model_validate(r) for r in runs]
+
+
+# ─── Meta login session (admin) ───────────────────────────────────────────────
+
+@router.get("/meta-session")
+async def get_meta_session(current_user: User = Depends(get_current_user)):
+    """Whether a logged-in Meta session is stored for the scraper (no cookie values)."""
+    from app.services import meta_session_service
+    return meta_session_service.status()
+
+
+@router.post("/meta-session")
+async def save_meta_session(payload: dict, current_user: User = Depends(require_admin)):
+    """Store exported facebook.com cookies as the scraper's browser session."""
+    from app.services import meta_session_service
+    try:
+        return meta_session_service.save_cookies(payload.get("cookies"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/meta-session")
+async def delete_meta_session(current_user: User = Depends(require_admin)):
+    from app.services import meta_session_service
+    return meta_session_service.clear()
+
+
+@router.post("/meta-session/test")
+async def test_meta_session(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Open one large competitor listing with the stored session and report what Meta returns."""
+    import json as _json
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    # Pick the competitor with the most ads so pagination is actually exercised.
+    stmt = (
+        select(Competitor.page_id)
+        .join(Ad, Ad.competitor_id == Competitor.id)
+        .where(Competitor.page_id.isnot(None), Competitor.is_own_brand == False)  # noqa: E712
+        .group_by(Competitor.page_id)
+        .order_by(func.count(Ad.id).desc())
+        .limit(1)
+    )
+    page_id = (await db.execute(stmt)).scalar()
+    if not page_id:
+        raise HTTPException(status_code=400, detail="No competitor with a page ID to test against")
+
+    backend_dir = str(_Path(__file__).resolve().parents[2])
+    proc = await _asyncio.create_subprocess_exec(
+        _sys.executable, "-m", "app.scripts.check_meta_session", page_id,
+        stdout=_asyncio.subprocess.PIPE, stderr=_asyncio.subprocess.PIPE, cwd=backend_dir,
+    )
+    try:
+        stdout, _ = await _asyncio.wait_for(proc.communicate(), timeout=120)
+    except _asyncio.TimeoutError:
+        proc.kill()
+        raise HTTPException(status_code=504, detail="Session test timed out")
+    try:
+        return _json.loads(stdout.decode().strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        raise HTTPException(status_code=500, detail="Session test failed to run")
 
 
 # ─── Schedule control ─────────────────────────────────────────────────────────
