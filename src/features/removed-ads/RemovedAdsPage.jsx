@@ -174,7 +174,7 @@ export default function RemovedAdsPage() {
         subtitle="Ads competitors took down — intelligence about what didn't work"
         rightSlot={
           <span className="text-xs text-text-secondary">
-            {meta.total} removed ads total
+            {hasFilters ? `${meta.total} matching filters` : `${meta.total} removed ads`}
           </span>
         }
       />

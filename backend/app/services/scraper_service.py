@@ -17,7 +17,7 @@ import asyncio
 import logging
 import re
 import urllib.parse
-from datetime import datetime, timezone, date as date_type
+from datetime import datetime, timedelta, timezone, date as date_type
 from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import UUID
 
@@ -405,6 +405,19 @@ async def scrape_competitor(
         raise
 
 
+def _estimated_removal_time(ad: Ad, detected_at: datetime) -> datetime:
+    """When an ad most likely ended. We only learn it is gone when we check, which
+    can be long after the fact; dating it to the check makes old removals look like
+    a spike today. If the ad was last confirmed active more than a couple of days
+    before the check, use that last confirmation instead."""
+    last_seen = ad.last_seen
+    if last_seen is not None and last_seen.tzinfo is None:
+        last_seen = last_seen.replace(tzinfo=timezone.utc)
+    if last_seen and detected_at - last_seen > REMOVAL_BACKDATE_AFTER:
+        return last_seen
+    return detected_at
+
+
 def _apply_verification(existing_map: Dict[str, Ad], scrape_meta: Dict[str, Any], found_ids: Set[str]) -> int:
     """Apply per-ad status checks from the scraper. Returns how many ads were marked removed."""
     now = datetime.now(timezone.utc)
@@ -417,13 +430,14 @@ def _apply_verification(existing_map: Dict[str, Ad], scrape_meta: Dict[str, Any]
         ad = existing_map.get(library_id)
         if ad and ad.status not in ("flagged", "removed") and library_id not in found_ids:
             ad.status = "removed"
-            ad.removed_at = now
+            ad.removed_at = _estimated_removal_time(ad, now)
             ended += 1
     return ended
 
 
 # Meta answers with an empty listing for a while after many page loads from one
 # IP. Batches wait this out instead of burning through the remaining competitors.
+REMOVAL_BACKDATE_AFTER = timedelta(days=2)
 BLOCK_WAIT_SECONDS = 20 * 60
 BLOCK_MAX_RETRIES = 3
 COOLDOWN_RATIO = 0.15      # pause after each competitor, as a share of its scrape time
