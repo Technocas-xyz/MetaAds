@@ -338,11 +338,27 @@ SSR_PAGE_SIZE = 30
 RATE_LIMIT_CODE = "1675004"
 MEDIA_SLICES = ["video", "image", "meme", "none"]
 PLATFORM_SLICES = ["facebook", "instagram", "messenger", "audience_network", "threads"]
+# Keyword sweep: Meta lets anonymous sessions search inside one advertiser's
+# ads, and each keyword gets its own server-rendered first page. Sweeping
+# words taken from the ads already seen reaches ads that neither pagination
+# nor the media slices return.
+MAX_SWEEP_QUERIES = 220
+SWEEP_DRY_LIMIT = 45      # stop after this many keywords in a row with nothing new
+SWEEP_EMPTY_LIMIT = 10    # known words returning nothing at all = soft block
+SWEEP_STOPWORDS = set(
+    "the and for you your with that this from have are our get all not but can just now more out "
+    "new off one any was will its it's than them they what when who how why into over only here "
+    "there their been about also each every make made need want "
+    # Ad Library card chrome
+    "library active inactive started running platforms sponsored details summary multiple versions "
+    "uses creative text shop learn sign order book send message subscribe open dropdown".split()
+)
 MAX_VERIFY = 80  # per-ad status checks per run (~7s each); more trips Meta's listing block
 CARD_SELECTORS = ["div._7jyh", "div[role='article']", "a[href*='/ads/library/?id=']"]
 
 
-def build_url(comp: dict, media_type: str = "all", platform: Optional[str] = None) -> str:
+def build_url(comp: dict, media_type: str = "all", platform: Optional[str] = None,
+              sort_mode: str = "total_impressions") -> str:
     if comp.get("page_id"):
         params = {
             "active_status": "active",
@@ -351,7 +367,7 @@ def build_url(comp: dict, media_type: str = "all", platform: Optional[str] = Non
             "is_targeted_country": "false",
             "media_type": media_type,
             "search_type": "page",
-            "sort_data[mode]": "total_impressions",
+            "sort_data[mode]": sort_mode,
             "sort_data[direction]": "desc",
             "view_all_page_id": comp["page_id"],
         }
@@ -366,6 +382,25 @@ def build_url(comp: dict, media_type: str = "all", platform: Optional[str] = Non
     if platform:
         params["publisher_platforms[0]"] = platform
     return f"{AD_LIBRARY_BASE}?{urllib.parse.urlencode(params)}"
+
+
+def build_keyword_url(page_id: str, keyword: str) -> str:
+    """Listing of one advertiser's active ads whose text contains `keyword`."""
+    params = {
+        "active_status": "active",
+        "ad_type": "all",
+        "country": "US",
+        "media_type": "all",
+        "q": keyword,
+        "search_type": "keyword_unordered",
+        "page_ids[0]": page_id,
+    }
+    return f"{AD_LIBRARY_BASE}?{urllib.parse.urlencode(params)}"
+
+
+def ad_tokens(text: str) -> Set[str]:
+    """Searchable words of an ad card, minus stopwords and Ad Library UI labels."""
+    return {w for w in re.findall(r"(?<![a-z'’])[a-z]{4,14}(?![a-z'’])", text.lower()) if w not in SWEEP_STOPWORDS}
 
 
 class PaginationMonitor:
@@ -424,8 +459,10 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
     seen_ids: Set[str] = set()
     scrape_start = time.time()
     loads: List[Dict[str, Any]] = []
+    token_ads: Dict[str, Set[str]] = {}   # word -> library ids of ads containing it
+    new_ids_in_load: List[str] = []
     stats = {
-        "cards": 0, "skipped": 0, "real_ids": 0, "synth_ids": 0, "dates": 0,
+        "sweep_queries": 0, "covered_results": 0, "cards": 0, "skipped": 0, "real_ids": 0, "synth_ids": 0, "dates": 0,
         "dropped_empty": 0, "dropped_error": 0, "dup_across_slices": 0,
     }
 
@@ -588,8 +625,11 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                     pass
             return "max_scrolls"
 
-        def load(url: str, label: str) -> Dict[str, Any]:
-            """Navigate to url, scroll it out, and report how the load ended."""
+        def load(url: str, label: str, scroll: bool = True) -> Dict[str, Any]:
+            """Navigate to url, scroll it out, and report how the load ended.
+
+            scroll=False takes only the server-rendered first page (keyword sweep).
+            """
             nonlocal consent_dismissed, any_blocked
             monitor.reset()
             logger.info(f"[{label}] Navigating to: {url}")
@@ -616,7 +656,12 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
 
             reported_total = read_reported_total()
             logger.info(f"[{label}] Reported total on page: {reported_total}")
-            stop = "blocked" if blocked else scroll_until_done(reported_total)
+            if blocked:
+                stop = "blocked"
+            elif scroll:
+                stop = scroll_until_done(reported_total)
+            else:
+                stop = "first_page"
             info = {
                 "label": label,
                 "reported_total": reported_total,
@@ -640,15 +685,13 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
             time.sleep(2)
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
             new_in_load = 0
+            new_ids_in_load.clear()
 
             for idx, card in enumerate(best_cards):
                 try:
                     if elapsed() > time_budget - 30:
                         logger.info(f"  Time budget exhausted at card {idx}/{len(best_cards)}. Saving {len(results)} collected so far.")
                         return False
-
-                    card.scroll_into_view_if_needed(timeout=5000)
-                    time.sleep(0.5)
 
                     full_text = ""
                     try:
@@ -681,9 +724,19 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                         if library_id in seen_ids:
                             stats["dup_across_slices"] += 1
                             continue
+                        # Only ads not seen yet are worth the scroll (lazy media, screenshot).
+                        card.scroll_into_view_if_needed(timeout=5000)
+                        time.sleep(0.5)
                         seen_ids.add(library_id)
                         stats["real_ids"] += 1
                         new_in_load += 1
+                        new_ids_in_load.append(library_id)
+                        for token in ad_tokens(wide_text):
+                            token_ads.setdefault(token, set()).add(library_id)
+                        # Meta's result count includes every ad sharing this card's
+                        # creative ("8 ads use this creative and text").
+                        group = re.search(r"(\d+)\s+ads use this creative", wide_text)
+                        stats["covered_results"] += int(group.group(1)) if group else 1
                         if library_id in existing_ids:
                             # EXISTING AD: always report it as seen (so it is not marked
                             # removed), plus fresh media URLs since Meta CDN URLs expire.
@@ -719,7 +772,7 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
             return True
 
         minio_state = {"available": None, "shots": 0}
-        MAX_SCREENSHOTS = 300
+        MAX_SCREENSHOTS = 600
 
         def capture_screenshot(card, key: str, timestamp: str) -> Optional[str]:
             """Screenshot a card into MinIO; returns its URL or None."""
@@ -860,6 +913,75 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
         def polite_pause():
             time.sleep(random.uniform(4, 8))
 
+        def keyword_sweep(target: int) -> None:
+            """Search inside the advertiser by words from ads already seen until
+            the unique count reaches `target`, new ads dry up, or time runs low."""
+            tried: Set[str] = set()
+            # Many ads reuse one copy with different images, so words from the same
+            # copy look identical among known ads — but they match very different
+            # numbers of unseen ads. Spread tries across copies instead of skipping.
+            signature_tries: Dict[frozenset, int] = {}
+            dry = empty = queries = 0
+            recent: List[str] = []   # ads found most recently — their words lead to neighbours
+
+            def next_keyword() -> Optional[str]:
+                best, best_key = None, None
+                recent_set = set(recent[-40:])
+                for word, ads in token_ads.items():
+                    if word in tried:
+                        continue
+                    tries = signature_tries.get(frozenset(ads), 0)
+                    # Words shared by a few known ads tend to match a page-sized
+                    # group with unseen members; one-off words usually match only
+                    # the ad they came from, so they go last. Fresh finds first.
+                    n = len(ads)
+                    band = 0 if 2 <= n <= 12 else (1 if n > 12 else 2)
+                    key = (tries, band, 0 if ads & recent_set else 1, abs(n - 4), word)
+                    if best_key is None or key < best_key:
+                        best, best_key = word, key
+                return best
+
+            while queries < MAX_SWEEP_QUERIES and stats["covered_results"] < target:
+                if elapsed() > time_budget - 420:
+                    logger.info("  Keyword sweep: time budget reached")
+                    break
+                word = next_keyword()
+                if not word:
+                    logger.info("  Keyword sweep: no untried words left")
+                    break
+                tried.add(word)
+                signature = frozenset(token_ads[word])
+                signature_tries[signature] = signature_tries.get(signature, 0) + 1
+                queries += 1
+                time.sleep(random.uniform(2.5, 4.5))
+                info = load(build_keyword_url(comp["page_id"], word), f"kw={word}", scroll=False)
+                if info["stop"] == "blocked":
+                    break
+                if not process_cards(f"kw={word}", require_id=True):
+                    break
+                if info["cards"] == 0:
+                    empty += 1
+                    if empty >= SWEEP_EMPTY_LIMIT:
+                        logger.warning("  Keyword sweep: known words return nothing — Meta is likely blocking, stopping")
+                        break
+                else:
+                    empty = 0
+                if new_ids_in_load:
+                    dry = 0
+                    recent.extend(new_ids_in_load)
+                else:
+                    dry += 1
+                    if dry >= SWEEP_DRY_LIMIT:
+                        logger.info(f"  Keyword sweep: {SWEEP_DRY_LIMIT} keywords in a row found nothing new")
+                        break
+                if queries % 10 == 0:
+                    logger.info(
+                        f"  Keyword sweep: {queries} keywords, {len(seen_ids)} unique ads "
+                        f"covering {stats['covered_results']} of ~{target} results"
+                    )
+            stats["sweep_queries"] = queries
+            logger.info(f"Keyword sweep done: {queries} keywords, {len(seen_ids)} unique ads (target ~{target})")
+
         def time_left() -> bool:
             return elapsed() < time_budget - 120
 
@@ -888,21 +1010,17 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                 if not process_cards(label, require_id=True) or info["stop"] == "blocked":
                     complete = False
                     break
-                if info["complete"]:
-                    continue
-                if info["stop"] != "rate_limited":
+                if not info["complete"]:
                     complete = False
-                    continue
-                # This media type alone still exceeds one page — split by platform.
-                for platform in PLATFORM_SLICES:
-                    if not time_left():
-                        complete = False
-                        break
-                    polite_pause()
-                    label = f"media={media_type},platform={platform}"
-                    pinfo = load(build_url(comp, media_type=media_type, platform=platform), label)
-                    if not process_cards(label, require_id=True) or not pinfo["complete"]:
-                        complete = False
+
+            # Meta's count is rounded ("~430"), so allow a small shortfall.
+            target = int(main["reported_total"] * 0.97) if main["reported_total"] else 0
+            if comp.get("page_id") and time_left() and not any_blocked and stats["covered_results"] < target:
+                polite_pause()
+                load(build_url(comp, sort_mode="relevancy_monthly_grouped"), "sort=relevancy", scroll=False)
+                process_cards("sort=relevancy", require_id=True)
+                keyword_sweep(target)
+            complete = complete or (bool(target) and stats["covered_results"] >= target)
 
         # An empty listing can't be told apart from a soft block (seen with
         # Blue Cotton: 0 cards while 57 of its ads were still running).
@@ -933,9 +1051,9 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
 
         logger.info(
             f"\n=== Scrape Summary for '{brand}' ===\n"
-            f"  Page loads:        {len(loads)}\n"
+            f"  Page loads:        {len(loads)} ({stats['sweep_queries']} keyword searches)\n"
             f"  Reported total:    {main['reported_total']}\n"
-            f"  Unique ads seen:   {len(seen_ids)}\n"
+            f"  Unique ads seen:   {len(seen_ids)} (covering {stats['covered_results']} results incl. shared creatives)\n"
             f"  Ads returned:      {len(results)}\n"
             f"  Existing (seen):   {stats['skipped']}\n"
             f"  New extracted:     {stats['cards']}\n"
@@ -991,6 +1109,7 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
         "complete": complete,
         "reported_total": main["reported_total"],
         "unique_ads": len(seen_ids),
+        "covered_results": stats["covered_results"],
         "rate_limited": any(l["pagination_rate_limited"] for l in loads),
         "blocked": any_blocked,
         "duration_seconds": int(elapsed()),
@@ -1032,7 +1151,7 @@ if __name__ == "__main__":
     verify = data.get("verify_ids", [])
 
     try:
-        ads, meta = run_scrape(comp, existing, output_file=output_file, time_budget=2400,
+        ads, meta = run_scrape(comp, existing, output_file=output_file, time_budget=3300,
                                needs_image_ids=needs_image, verify_ids=verify)
         logger.info(f"Wrote {len(ads)} ads to {output_file} (complete={meta['complete']})")
     except Exception as e:

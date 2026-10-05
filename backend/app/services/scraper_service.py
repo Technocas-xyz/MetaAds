@@ -34,7 +34,7 @@ from app.services.analysis_service import run_analysis
 logger = logging.getLogger(__name__)
 
 # Per-competitor overall timeout (seconds)
-SCRAPE_TIMEOUT = 2700  # 45 minutes — listing + slices + per-ad verification (scraper budget is 2400s)
+SCRAPE_TIMEOUT = 3600  # 60 minutes — listing + keyword sweep + per-ad verification (scraper budget is 3300s)
 
 AD_LIBRARY_BASE = "https://www.facebook.com/ads/library/"
 
@@ -321,7 +321,8 @@ async def scrape_competitor(
             print(f"[SCRAPER] WARNING: 0 ads returned, preserving {existing_active_count} existing ads")
         elif not scrape_complete:
             run.error_message = (
-                f"Partial scrape: saw {len(found_library_ids)} of ~{scrape_meta.get('reported_total', '?')} ads "
+                f"Partial scrape: {len(found_library_ids)} unique ads covering "
+                f"{scrape_meta.get('covered_results', '?')} of ~{scrape_meta.get('reported_total', '?')} results "
                 f"(rate_limited={scrape_meta.get('rate_limited')}). Removal detection skipped."
             )
             logger.warning(f"[scraper] {competitor.name}: {run.error_message}")
