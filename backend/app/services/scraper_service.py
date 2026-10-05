@@ -439,7 +439,7 @@ def _apply_verification(existing_map: Dict[str, Ad], scrape_meta: Dict[str, Any]
 # IP. Batches wait this out instead of burning through the remaining competitors.
 REMOVAL_BACKDATE_AFTER = timedelta(days=2)
 BLOCK_WAIT_SECONDS = 20 * 60
-BLOCK_MAX_RETRIES = 3
+BLOCK_MAX_RETRIES = 9   # up to 3 hours per competitor
 COOLDOWN_RATIO = 0.15      # pause after each competitor, as a share of its scrape time
 COOLDOWN_MAX_SECONDS = 300
 
@@ -468,11 +468,18 @@ async def scrape_in_batch(competitor_id: UUID, trigger: str, should_abort=None) 
                     Ad.status.notin_(["removed", "flagged"]),
                 )
             )).scalar() or 0
-        looks_blocked = run.ads_found == 0 and active > 0
+            # Also true right after a data reset, when no ads are stored yet.
+            had_ads_recently = (await db.execute(
+                select(func.max(ScrapeRun.ads_found)).where(
+                    ScrapeRun.competitor_id == competitor_id,
+                    ScrapeRun.run_at >= datetime.now(timezone.utc) - timedelta(days=14),
+                )
+            )).scalar() or 0
+        looks_blocked = run.ads_found == 0 and (active > 0 or had_ads_recently > 0)
         if not looks_blocked or attempt == BLOCK_MAX_RETRIES:
             break
         logger.warning(
-            f"[scraper] Empty listing for a competitor with {active} active ads — Meta is likely "
+            f"[scraper] Empty listing for a competitor that had ads recently — Meta is likely "
             f"blocking. Waiting {BLOCK_WAIT_SECONDS // 60} min before retry {attempt + 1}/{BLOCK_MAX_RETRIES}."
         )
         if not await wait(BLOCK_WAIT_SECONDS):
