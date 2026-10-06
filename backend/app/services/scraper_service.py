@@ -444,6 +444,42 @@ COOLDOWN_RATIO = 0.15      # pause after each competitor, as a share of its scra
 COOLDOWN_MAX_SECONDS = 300
 
 
+async def _meta_serves_listings(exclude_competitor_id: UUID) -> bool:
+    """Load the listing of the competitor with the most active ads (not the one
+    being checked). Ads there mean Meta is not blocking us."""
+    import sys
+    from pathlib import Path
+
+    async with AsyncSessionLocal() as db:
+        page_id = (await db.execute(
+            select(Competitor.page_id)
+            .join(Ad, Ad.competitor_id == Competitor.id)
+            .where(
+                Competitor.id != exclude_competitor_id,
+                Competitor.page_id.isnot(None),
+                Ad.status.notin_(["removed", "flagged"]),
+            )
+            .group_by(Competitor.page_id)
+            .order_by(func.count(Ad.id).desc())
+            .limit(1)
+        )).scalar()
+    if not page_id:
+        return False  # nothing known to compare against; assume blocked
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "app.scripts.probe_listing", page_id,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+        cwd=str(Path(__file__).resolve().parents[2]),
+    )
+    try:
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=120)
+        cards = int(out.decode().strip().splitlines()[-1])
+    except (asyncio.TimeoutError, ValueError, IndexError):
+        proc.kill() if proc.returncode is None else None
+        return False
+    logger.info(f"[scraper] Block probe: reference listing shows {cards} ads")
+    return cards > 0
+
+
 async def scrape_in_batch(competitor_id: UUID, trigger: str, should_abort=None) -> Optional[ScrapeRun]:
     """Scrape one competitor inside a batch: retry after a pause when Meta returns
     an empty listing for an advertiser we know has ads, then cool down."""
@@ -476,6 +512,9 @@ async def scrape_in_batch(competitor_id: UUID, trigger: str, should_abort=None) 
                 )
             )).scalar() or 0
         looks_blocked = run.ads_found == 0 and (active > 0 or had_ads_recently > 0)
+        if looks_blocked and await _meta_serves_listings(competitor_id):
+            # Meta still shows another advertiser's ads, so this one really has none.
+            looks_blocked = False
         if not looks_blocked or attempt == BLOCK_MAX_RETRIES:
             break
         logger.warning(
