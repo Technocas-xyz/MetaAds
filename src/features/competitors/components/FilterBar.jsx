@@ -2,11 +2,7 @@ import { SlidersHorizontal } from 'lucide-react'
 import DateRangePicker from '../../../components/ui/DateRangePicker'
 import Button from '../../../components/ui/Button'
 import { cn } from '../../../lib/utils'
-
-const NICHES = [
-  'Custom Printing', 'DTF Transfers', 'Print on Demand',
-  'Apparel', 'Fashion', 'Commercial Printing',
-]
+import { NICHES, WINNING_DAY_OPTIONS, DEFAULT_WINNING_DAYS } from '../../../lib/constants'
 
 function NativeSelect({ label, value, onChange, children }) {
   return (
@@ -34,8 +30,8 @@ function NativeSelect({ label, value, onChange, children }) {
 
 export default function FilterBar({ filters, onChange, onClear }) {
   const set = (key) => (val) => onChange({ ...filters, [key]: val })
-  const hasActive = Object.values(filters).some(
-    (v) => v !== '' && v !== null && v !== undefined
+  const hasActive = Object.entries(filters).some(
+    ([k, v]) => v !== '' && v !== null && v !== undefined && !(k === 'winningDays' && v === DEFAULT_WINNING_DAYS)
   )
 
   return (
@@ -70,7 +66,18 @@ export default function FilterBar({ filters, onChange, onClear }) {
       <NativeSelect value={filters.niche ?? ''} onChange={set('niche')}>
         <option value="">All Niches</option>
         {NICHES.map((n) => (
-          <option key={n} value={n}>{n}</option>
+          <option key={n.value} value={n.value}>{n.label}</option>
+        ))}
+      </NativeSelect>
+
+      {/* Winning threshold — recalculates Winning Ads count and % */}
+      <NativeSelect
+        label="Winning ads"
+        value={filters.winningDays ?? DEFAULT_WINNING_DAYS}
+        onChange={(v) => set('winningDays')(Number(v))}
+      >
+        {WINNING_DAY_OPTIONS.map((d) => (
+          <option key={d} value={d}>Active {d}+ days</option>
         ))}
       </NativeSelect>
 

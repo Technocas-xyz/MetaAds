@@ -1,5 +1,5 @@
 import {
-  BarChart2, CheckCircle2, XCircle, Timer, Trophy, Clock, Users2,
+  BarChart2, CheckCircle2, XCircle, Timer, Trophy, Clock, Users2, Globe,
 } from 'lucide-react'
 import KPICard from '../../../components/ui/KPICard'
 
@@ -18,11 +18,11 @@ function Skeleton() {
   )
 }
 
-export default function CompetitorKPIs({ summary, isLoading }) {
+export default function CompetitorKPIs({ summary, isLoading, winningDays = 30 }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
-        {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} />)}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
+        {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} />)}
       </div>
     )
   }
@@ -39,6 +39,14 @@ export default function CompetitorKPIs({ summary, isLoading }) {
       note:      `${s.active_competitors ?? 0} active`,
     },
     {
+      title:     'Meta Available Ads',
+      value:     s.meta_available_ads,
+      icon:      Globe,
+      iconBg:    'bg-sky-50',
+      iconColor: 'text-sky-600',
+      note:      'Shown on Meta Ad Library now',
+    },
+    {
       title:     'Total Ads',
       value:     s.total_ads,
       icon:      BarChart2,
@@ -47,7 +55,7 @@ export default function CompetitorKPIs({ summary, isLoading }) {
       note:      `${(s.total_ads_analyzed ?? 0).toLocaleString()} analyzed by AI`,
     },
     {
-      title:     'Existing Ads',
+      title:     'Scraped Ads (active)',
       value:     s.existing_ads,
       icon:      CheckCircle2,
       iconBg:    'bg-success-50',
@@ -76,7 +84,7 @@ export default function CompetitorKPIs({ summary, isLoading }) {
       icon:      Trophy,
       iconBg:    'bg-amber-50',
       iconColor: 'text-amber-600',
-      note:      `Active 30+ days · ${s.winning_ads_pct ?? 0}% of existing`,
+      note:      `Active ${winningDays}+ days · ${s.winning_ads_pct ?? 0}% of existing`,
     },
     {
       title:     'Avg Ad Duration',
@@ -89,7 +97,7 @@ export default function CompetitorKPIs({ summary, isLoading }) {
   ]
 
   return (
-    <div className="stagger grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
+    <div className="stagger grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
       {cards.map((card) => (
         <KPICard key={card.title} {...card} />
       ))}

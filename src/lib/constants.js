@@ -56,3 +56,20 @@ export const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'Other']
 export const AD_STATUSES = ['pending', 'approved', 'rejected', 'flagged']
 
 export const REVIEW_REASONS = ['low_confidence', 'flagged', 'manual']
+
+// Competitor niches. `value` is what is stored on the competitor; the filter on
+// the Competitors page and the Add Competitor form both read this list.
+export const NICHES = [
+  { value: 'DTF',                 label: 'DTF Transfers' },
+  { value: 'Print-on-Demand',     label: 'Print on Demand' },
+  { value: 'Custom Printing',     label: 'Custom Printing' },
+  { value: 'Apparel',             label: 'Apparel' },
+  { value: 'Fashion',             label: 'Fashion' },
+  { value: 'Commercial Printing', label: 'Commercial Printing' },
+]
+
+export const nicheLabel = (value) => NICHES.find((n) => n.value === value)?.label ?? value
+
+// "Winning ad" = still active after at least this many days.
+export const WINNING_DAY_OPTIONS = [30, 60, 90, 120]
+export const DEFAULT_WINNING_DAYS = 30

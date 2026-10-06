@@ -142,6 +142,7 @@ async def scrape_competitor(
             )
         ]
         scraped_ads, scrape_meta = await _fetch_all_ads(competitor, existing_ids, needs_image_ids, verify_ids)
+        await _record_meta_available(db, competitor, run, scrape_meta, existing_count_before)
 
         # SAFETY: If scrape returned 0 and we had existing ads, do NOTHING.
         # This protects against Meta throttling / transient failures.
@@ -444,6 +445,51 @@ COOLDOWN_RATIO = 0.15      # pause after each competitor, as a share of its scra
 COOLDOWN_MAX_SECONDS = 300
 
 
+async def _set_meta_available(db: AsyncSession, competitor_id: UUID, run_id: Optional[UUID], count: int) -> None:
+    """Store Meta's current ad count on the competitor and on the scan that saw it."""
+    competitor = await db.get(Competitor, competitor_id)
+    if competitor:
+        competitor.meta_available_ads = count
+        competitor.meta_available_checked_at = datetime.now(timezone.utc)
+    if run_id:
+        run = await db.get(ScrapeRun, run_id)
+        if run:
+            run.meta_reported_total = count
+
+
+async def _record_meta_available(
+    db: AsyncSession,
+    competitor: Competitor,
+    run: ScrapeRun,
+    scrape_meta: Dict[str, Any],
+    existing_count_before: int,
+) -> None:
+    """Keep Meta's "~N results" count from this scan, apart from our stored ads.
+
+    A positive count is trusted as-is. Zero is ambiguous — Meta also answers
+    "no ads" while soft-blocking us — so it is only stored when the advertiser
+    had nothing recently either; batch scrapes confirm other zeros with a
+    reference listing (scrape_in_batch).
+    """
+    if scrape_meta.get("blocked"):
+        return
+    reported = scrape_meta.get("reported_total")
+    if reported is None:
+        return
+    if reported == 0:
+        had_ads_recently = (await db.execute(
+            select(func.max(ScrapeRun.ads_found)).where(
+                ScrapeRun.competitor_id == competitor.id,
+                ScrapeRun.run_at >= datetime.now(timezone.utc) - timedelta(days=14),
+            )
+        )).scalar() or 0
+        if existing_count_before > 0 or had_ads_recently > 0:
+            return
+    competitor.meta_available_ads = int(reported)
+    competitor.meta_available_checked_at = datetime.now(timezone.utc)
+    run.meta_reported_total = int(reported)
+
+
 async def _meta_serves_listings(exclude_competitor_id: UUID) -> bool:
     """Load the listing of the competitor with the most active ads (not the one
     being checked). Ads there mean Meta is not blocking us."""
@@ -515,6 +561,9 @@ async def scrape_in_batch(competitor_id: UUID, trigger: str, should_abort=None) 
         if looks_blocked and await _meta_serves_listings(competitor_id):
             # Meta still shows another advertiser's ads, so this one really has none.
             looks_blocked = False
+            async with AsyncSessionLocal() as db:
+                await _set_meta_available(db, competitor_id, run.id, 0)
+                await db.commit()
         if not looks_blocked or attempt == BLOCK_MAX_RETRIES:
             break
         logger.warning(

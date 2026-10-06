@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 import { useCreateCompetitor } from '../../../hooks/queries/useCompetitors'
 import Button from '../../../components/ui/Button'
 import { cn } from '../../../lib/utils'
+import { NICHES } from '../../../lib/constants'
 
 /**
  * Parse a Meta Ad Library URL to extract page_id or query.
@@ -41,7 +42,7 @@ const schema = z.object({
     'URL must contain view_all_page_id=... or q=...'
   ),
   priority_tier: z.enum(['High', 'Medium', 'Low']),
-  niche: z.string().optional(),
+  niches: z.array(z.string()).min(1, 'Pick at least one niche'),
   tags: z.string().optional(),
 })
 
@@ -85,11 +86,20 @@ export default function AddCompetitorModal({ open, onOpenChange }) {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { priority_tier: 'Medium', niche: '', tags: '' },
+    defaultValues: { priority_tier: 'Medium', niches: ['DTF', 'Print-on-Demand'], tags: '' },
   })
+
+  const selectedNiches = watch('niches') ?? []
+  const toggleNiche = (value) => {
+    const next = selectedNiches.includes(value)
+      ? selectedNiches.filter((n) => n !== value)
+      : [...selectedNiches, value]
+    setValue('niches', next, { shouldValidate: true })
+  }
 
   // Watch the URL field to show parsed result
   const urlValue = watch('meta_ad_library_url')
@@ -105,7 +115,7 @@ export default function AddCompetitorModal({ open, onOpenChange }) {
       page_id: parsed.page_id,
       query: parsed.query,
       query_type: parsed.query_type,
-      niches: data.niche ? data.niche.split(',').map((s) => s.trim()).filter(Boolean) : ['DTF', 'Print-on-Demand'],
+      niches: data.niches,
       priority_tier: data.priority_tier,
     }
 
@@ -197,18 +207,37 @@ export default function AddCompetitorModal({ open, onOpenChange }) {
               )}
             </div>
 
-            {/* Niche + Priority */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="niche">Niche</Label>
-                <input
-                  id="niche"
-                  {...register('niche')}
-                  placeholder="e.g. DTF, Custom Printing"
-                  className={INPUT}
-                />
-                <p className="mt-1 text-[11px] text-text-tertiary">Comma-separate multiple</p>
+            {/* Niche — same options as the Niche filter on the Competitors page */}
+            <div>
+              <Label required>Niche</Label>
+              <div role="group" aria-label="Niche" className="flex flex-wrap gap-2">
+                {NICHES.map((n) => {
+                  const on = selectedNiches.includes(n.value)
+                  return (
+                    <button
+                      key={n.value}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => toggleNiche(n.value)}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                        on
+                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          : 'border-border-default bg-white text-text-secondary hover:bg-gray-50'
+                      )}
+                    >
+                      {on && <CheckCircle2 size={12} aria-hidden="true" />}
+                      {n.label}
+                    </button>
+                  )
+                })}
               </div>
+              <FieldError message={errors.niches?.message} />
+            </div>
+
+            {/* Priority */}
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="priority_tier">Priority</Label>
                 <select

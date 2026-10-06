@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Download, TrendingUp, TrendingDown, ArrowRight,
+  TrendingUp, TrendingDown, ArrowRight,
   Eye, ChevronLeft, ChevronRight, Info,
 } from 'lucide-react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
@@ -13,7 +13,6 @@ import {
 } from 'recharts'
 import Breadcrumb from '../../components/layout/Breadcrumb'
 import PageHeader from '../../components/ui/PageHeader'
-import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import ConfidenceBadge from '../../components/ui/ConfidenceBadge'
 import HookTypeBadge from '../../components/ui/HookTypeBadge'
@@ -21,6 +20,8 @@ import DateRangePicker from '../../components/ui/DateRangePicker'
 import KPICard from '../../components/ui/KPICard'
 import MarketOverview from './components/MarketOverview'
 import CompetitorBreakdown from './components/CompetitorBreakdown'
+import ExportMenu from './components/ExportMenu'
+import { useAllCompetitorInsights } from '../../hooks/queries/useInsights'
 import {
   useAISummary,
   usePerformanceTimeline,
@@ -605,6 +606,7 @@ export default function AIAnalysisPage() {
   const { data: angles,   isLoading: angLoading  } = useTopAnglesDonut()
   const { data: confDist, isLoading: cdLoading   } = useConfidenceDist()
   const { data: winning,  isLoading: winLoading  } = useWinningAds()
+  const { data: competitorInsights } = useAllCompetitorInsights()
 
   const kpis = buildKPIs(summary)
 
@@ -621,7 +623,7 @@ export default function AIAnalysisPage() {
         rightSlot={
           <div className="flex items-center gap-2">
             <DateRangePicker />
-            <Button variant="outline" icon={Download}>Export Report</Button>
+            <ExportMenu competitors={competitorInsights} winningAds={winning} />
           </div>
         }
       />
