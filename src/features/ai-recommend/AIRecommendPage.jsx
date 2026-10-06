@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Sparkles, Play, Square, Copy, Clock, AlertCircle, CheckCircle2, Loader2, RotateCcw, History,
+  Sparkles, Square, Copy, Clock, AlertCircle, CheckCircle2, Loader2, RotateCcw, History,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import { getEngines, getContext, generateComparison, getRunStatus, cancelRun, getHistory, getHistoryDetail } from '../../api/aiRecommend'
-import { getEngines, getContext, generateComparison, getHistory, getHistoryDetail } from '../../api/aiRecommend'
 import { cn } from '../../lib/utils'
 
 const ENGINE_COLORS = {
@@ -86,19 +85,9 @@ export default function AIRecommendPage() {
     try {
       await cancelRun(currentRunId)
       toast('Cancelling... Completed results will be preserved.\nNote: requests already sent to a provider may still incur cost.', { icon: '⏹️', duration: 5000 })
-    } catch {
-      toast.error('Could not cancel')
-    }
-      setResults(res.results)
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Generation failed')
+      toast.error(e.response?.data?.detail || 'Failed to cancel run')
     }
-    setRunning(false)
-  }
-
-  const handleStop = () => {
-    setRunning(false)
-    toast('Cancelled — partial results may still appear', { icon: '⏹️' })
   }
 
   const handleReset = () => {
