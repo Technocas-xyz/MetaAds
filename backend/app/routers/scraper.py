@@ -499,6 +499,7 @@ async def toggle_schedule(
 # ─── Scrape All (batch) ───────────────────────────────────────────────────────
 
 import asyncio as _asyncio
+from app.services.ai_client import AIProvidersExhausted
 from app.services.job_controller import scrape_all_job, analyze_all_job, get_competitor_analyze_job
 
 _batch_running = False
@@ -666,6 +667,13 @@ async def _run_batch_analysis():
                 if (i + 1) % 10 == 0:
                     log.info(f"[analyze-all] Progress: {analyze_all_job.completed}/{total}")
 
+            except AIProvidersExhausted as e:
+                # Every provider is out of credits or over its cap: stop instead
+                # of failing each remaining ad the same way.
+                analyze_all_job.message = str(e)[:300]
+                analyze_all_job.stop()
+                log.warning(f"[analyze-all] Stopped at {i}/{total}: {e}")
+                break
             except Exception as e:
                 _analysis_progress["failed"] += 1
                 analyze_all_job.failed += 1

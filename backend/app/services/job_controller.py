@@ -37,6 +37,7 @@ class JobController:
         self.failed: int = 0
         self.skipped: int = 0
         self.current: Optional[str] = None
+        self.message: Optional[str] = None  # why the job stopped early, shown in the UI
         self.started_at: Optional[datetime] = None
         self.finished_at: Optional[datetime] = None
         self._pause_event = asyncio.Event()
@@ -51,6 +52,7 @@ class JobController:
         self.failed = 0
         self.skipped = 0
         self.current = None
+        self.message = None
         self.started_at = datetime.now(timezone.utc)
         self.finished_at = None
         self._pause_event.set()
@@ -124,6 +126,7 @@ class JobController:
         """Serialize state for API response."""
         return {
             "state": self.state.value,
+            "message": self.message,
             "total": self.total,
             "completed": self.completed,
             "failed": self.failed,

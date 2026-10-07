@@ -35,7 +35,7 @@ PROVIDERS = {
         "name": "Groq",
         "env_key": "GROQ_API_KEY",
         "model_env": "GROQ_MODEL",
-        "default_model": "llama-3.3-70b-versatile",
+        "default_model": "openai/gpt-oss-120b",
     },
     "xai": {
         "name": "Grok",
