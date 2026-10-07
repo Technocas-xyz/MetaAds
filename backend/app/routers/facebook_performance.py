@@ -201,8 +201,9 @@ async def get_performance_report(
     from sqlalchemy import func, desc
     from decimal import Decimal
 
-    # Load all stored ads
-    ads_stmt = select(FacebookOwnedAd)
+    # Ads of the configured account only — rows synced from an account used
+    # earlier stay in the table and must not mix into this report.
+    ads_stmt = select(FacebookOwnedAd).where(FacebookOwnedAd.account_id == settings.FB_AD_ACCOUNT_ID)
     if status_filter:
         ads_stmt = ads_stmt.where(FacebookOwnedAd.effective_status == status_filter)
     if campaign:
@@ -533,7 +534,7 @@ async def list_stored_ads(
 ):
     """List all stored Facebook own-brand ads from PostgreSQL."""
     from app.models.facebook_owned_ad import FacebookOwnedAd
-    stmt = select(FacebookOwnedAd)
+    stmt = select(FacebookOwnedAd).where(FacebookOwnedAd.account_id == settings.FB_AD_ACCOUNT_ID)
     if status_filter:
         stmt = stmt.where(FacebookOwnedAd.effective_status == status_filter)
     ads = (await db.execute(stmt.order_by(FacebookOwnedAd.last_synced_at.desc()))).scalars().all()

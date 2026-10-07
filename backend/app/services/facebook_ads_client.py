@@ -9,6 +9,8 @@ import asyncio
 import logging
 from typing import Optional
 
+import json
+
 import httpx
 
 from app.config import settings
@@ -18,6 +20,11 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://graph.facebook.com"
 
 # Fields to request on each entity
+ALL_AD_STATUSES = [
+    "ACTIVE", "PAUSED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "ARCHIVED",
+    "WITH_ISSUES", "DISAPPROVED", "IN_PROCESS", "PENDING_REVIEW",
+]
+
 AD_FIELDS = [
     "id", "name", "status", "effective_status", "configured_status",
     "created_time", "updated_time", "adset_id",
@@ -130,6 +137,9 @@ async def fetch_ads(
             params = {
                 "fields": ",".join(AD_FIELDS),
                 "limit": str(limit),
+                # Meta leaves archived ads out unless asked; their spend still
+                # counts toward the account, so include every non-deleted status.
+                "effective_status": json.dumps(ALL_AD_STATUSES),
             }
             if after:
                 params["after"] = after
