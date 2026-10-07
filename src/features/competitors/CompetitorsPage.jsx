@@ -7,8 +7,9 @@ import FilterBar from './components/FilterBar'
 import CompetitorsTable from './components/CompetitorsTable'
 import AddCompetitorModal from './components/AddCompetitorModal'
 import { useCompetitors, useCompetitorsSummary } from '../../hooks/queries/useCompetitors'
+import { DEFAULT_WINNING_DAYS } from '../../lib/constants'
 
-const EMPTY_FILTERS = { dateRange: null, status: '', priorityTier: '', niche: '' }
+const EMPTY_FILTERS = { dateRange: null, status: '', priorityTier: '', niche: '', winningDays: DEFAULT_WINNING_DAYS }
 
 export default function CompetitorsPage() {
   const [modalOpen, setModalOpen]   = useState(false)
@@ -22,11 +23,13 @@ export default function CompetitorsPage() {
     if (filters.status)       p.status = filters.status
     if (filters.priorityTier) p.priority_tier = filters.priorityTier
     if (filters.niche)        p.niche = filters.niche
+    p.winning_days = filters.winningDays
     return p
   }, [filters])
 
+  const winningDays = filters.winningDays
   const { data: competitors = [], isLoading }         = useCompetitors(queryParams)
-  const { data: summary,         isLoading: kpiLoading } = useCompetitorsSummary()
+  const { data: summary,         isLoading: kpiLoading } = useCompetitorsSummary({ winning_days: winningDays })
 
   // Pagination (server returns all matching; paginate client-side for now)
   const total  = competitors.length
@@ -56,7 +59,7 @@ export default function CompetitorsPage() {
         />
 
         {/* KPI row */}
-        <CompetitorKPIs summary={summary} isLoading={kpiLoading} />
+        <CompetitorKPIs summary={summary} isLoading={kpiLoading} winningDays={winningDays} />
 
         {/* Filter bar */}
         <FilterBar
@@ -72,6 +75,7 @@ export default function CompetitorsPage() {
           page={page}
           perPage={perPage}
           total={total}
+          winningDays={winningDays}
           onPage={setPage}
           onPerPage={handlePerPage}
         />

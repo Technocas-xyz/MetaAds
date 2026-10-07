@@ -62,6 +62,11 @@ class CompetitorStats(BaseModel):
     variants: int = 0
     last_activity: Optional[datetime] = None
 
+    # What Meta's Ad Library shows right now (its "~N results" count on the last
+    # scan), kept apart from what we have stored.
+    meta_available_ads: Optional[int] = None
+    meta_available_checked_at: Optional[datetime] = None
+
 
 # ---------- Response shapes ----------
 
@@ -100,6 +105,8 @@ class CompetitorsSummary(BaseModel):
     total_competitors: int = 0
     active_competitors: int = 0
     total_ads: int = 0
+    meta_available_ads: int = 0
+    winning_days: int = 30
 
 
 # Backwards-compat alias for old imports

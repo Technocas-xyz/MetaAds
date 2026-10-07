@@ -403,6 +403,26 @@ def ad_tokens(text: str) -> Set[str]:
     return {w for w in re.findall(r"(?<![a-z'’])[a-z]{4,14}(?![a-z'’])", text.lower()) if w not in SWEEP_STOPWORDS}
 
 
+def browser_proxy() -> Optional[Dict[str, str]]:
+    """Playwright proxy settings from SCRAPER_PROXY_URL, or None to connect directly.
+
+    Falls back to a direct connection when the proxy is not reachable, so a
+    stopped proxy degrades the scrape instead of failing every page load.
+    """
+    import os
+    import socket
+    url = os.getenv("SCRAPER_PROXY_URL", "").strip()
+    if not url:
+        return None
+    parsed = urllib.parse.urlparse(url)
+    try:
+        socket.create_connection((parsed.hostname, parsed.port or 80), timeout=3).close()
+    except OSError as e:
+        logger.warning(f"SCRAPER_PROXY_URL is set but not reachable ({e}); connecting directly")
+        return None
+    return {"server": url}
+
+
 class PaginationMonitor:
     """Watches Ad Library pagination GraphQL responses for rate-limit errors."""
 
@@ -506,9 +526,13 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
         "[aria-label='Close']",
     ]
 
+    proxy = browser_proxy()
+    logger.info(f"Network: {'via ' + proxy['server'] if proxy else 'direct'}")
+
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
             headless=True,
+            proxy=proxy,
             args=[
                 "--no-sandbox",
                 "--disable-dev-shm-usage",

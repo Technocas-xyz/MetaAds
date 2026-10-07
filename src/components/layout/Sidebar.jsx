@@ -38,6 +38,9 @@ const SIDEBAR_W  = 'w-56'       // 224px at 16px root
 const SIDEBAR_W_C = 'w-14'      // 56px collapsed
 
 // ── Nav data ─────────────────────────────────────────────────────────────────
+// Ordered as the workflow runs: collect competitor ads → analyse them →
+// review what the AI is unsure about → turn patterns into decisions →
+// compare with our own ads → act on it → admin.
 const NAV_GROUPS = [
   {
     id: 'dashboard',
@@ -47,41 +50,20 @@ const NAV_GROUPS = [
     ],
   },
   {
-    id: 'intelligence',
-    label: 'Intelligence',
+    id: 'competitors',
+    label: 'Competitors',
     items: [
-      { label: 'Competitors',   to: '/competitors',          icon: Users2 },
-      { label: 'Ad Scraper',    to: '/scraper/competitors',  icon: Radar },
-      { label: 'My Ads',        to: '/my-ads',               icon: Zap },
-      { label: 'Removed Ads',   to: '/removed-ads',          icon: Trash2 },
-      { label: 'AI Recommendation', to: '/ai-recommendation', icon: Sparkles },
-      { label: 'FB API Explorer', to: '/facebook/explorer', icon: Database },
-      { label: 'Own Ads Performance', to: '/facebook/performance', icon: TrendingUp },
-      { label: 'Ads Library',   to: '/ads',                  icon: BookImage },
-      { label: 'AI Analysis',   to: '/ai-analysis',          icon: Brain },
-      { label: 'Hook Library',  to: '/hooks',                icon: Anchor },
-      { label: 'Angle Library', to: '/angles',               icon: Compass },
-      { label: 'Offer Library', to: '/offers',               icon: Gift },
+      { label: 'Competitors',   to: '/competitors',         icon: Users2 },
+      { label: 'Ad Scraper',    to: '/scraper/competitors', icon: Radar },
+      { label: 'Ads Library',   to: '/ads',                 icon: BookImage },
+      { label: 'Removed Ads',   to: '/removed-ads',         icon: Trash2 },
     ],
   },
   {
-    id: 'workflows',
-    label: 'Workflows',
+    id: 'analysis',
+    label: 'Analysis',
     items: [
-      { label: 'Creative Recommendations', to: '/recommendations', icon: Lightbulb },
-      { label: 'Creative Review & QA',        to: '/creative-review', icon: ClipboardCheck },
-      { label: 'Performance Intelligence',    to: '/performance',     icon: TrendingUp },
-      { label: 'Creative Briefs',             to: '/briefs',          icon: FileText },
-      { label: 'Campaigns',                   to: '/campaigns',                   icon: Megaphone },
-    ],
-  },
-  {
-    id: 'learning',
-    label: 'Learning',
-    items: [
-      { label: 'Learning Loop',       to: '/learning-loop',       icon: RefreshCcw },
-      { label: 'Insight Log',         to: '/insight-log',         icon: ScrollText },
-      { label: 'Prediction Accuracy', to: '/prediction-accuracy', icon: Target },
+      { label: 'AI Analysis',   to: '/ai-analysis',         icon: Brain },
     ],
   },
   {
@@ -90,6 +72,39 @@ const NAV_GROUPS = [
     items: [
       { label: 'Review Queue',   to: '/review',         icon: Inbox },
       { label: 'Low Confidence', to: '/low-confidence', icon: AlertTriangle },
+    ],
+  },
+  {
+    id: 'intelligence',
+    label: 'Intelligence',
+    items: [
+      { label: 'Hook Library',             to: '/hooks',              icon: Anchor },
+      { label: 'Angle Library',            to: '/angles',             icon: Compass },
+      { label: 'Offer Library',            to: '/offers',             icon: Gift },
+      { label: 'AI Recommendation',        to: '/ai-recommendation',  icon: Sparkles },
+      { label: 'Creative Recommendations', to: '/recommendations',    icon: Lightbulb },
+      { label: 'Performance Intelligence', to: '/performance',        icon: TrendingUp },
+      { label: 'Learning Loop',            to: '/learning-loop',      icon: RefreshCcw },
+      { label: 'Insight Log',              to: '/insight-log',        icon: ScrollText },
+      { label: 'Prediction Accuracy',      to: '/prediction-accuracy', icon: Target },
+    ],
+  },
+  {
+    id: 'own-ads',
+    label: 'Own Ads',
+    items: [
+      { label: 'Own Ads Performance', to: '/facebook/performance', icon: TrendingUp },
+      { label: 'My Ads',              to: '/my-ads',               icon: Zap },
+      { label: 'FB API Explorer',     to: '/facebook/explorer',    icon: Database },
+    ],
+  },
+  {
+    id: 'workflows',
+    label: 'Workflows',
+    items: [
+      { label: 'Creative Review & QA', to: '/creative-review', icon: ClipboardCheck },
+      { label: 'Creative Briefs',      to: '/briefs',          icon: FileText },
+      { label: 'Campaigns',            to: '/campaigns',       icon: Megaphone },
     ],
   },
   {

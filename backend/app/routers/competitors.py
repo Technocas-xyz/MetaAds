@@ -21,7 +21,7 @@ from app.schemas.competitor import (
 )
 
 
-from app.services.winning import winning_ad_filter
+from app.services.winning import WINNING_MIN_DAYS, winning_ad_filter
 
 router = APIRouter(prefix="/competitors", tags=["competitors"])
 
@@ -29,15 +29,22 @@ router = APIRouter(prefix="/competitors", tags=["competitors"])
 # ---------- Helper: compute stats for one competitor ----------
 
 async def _compute_stats_for_competitor(
-    db: AsyncSession, competitor_id: UUID
+    db: AsyncSession, competitor_id: UUID, winning_days: int = WINNING_MIN_DAYS
 ) -> CompetitorStats:
     """Per-competitor stats: pulls from Ad + AdAnalysis tables."""
     # Total ads
     total_stmt = select(func.count(Ad.id)).where(Ad.competitor_id == competitor_id)
     total = (await db.execute(total_stmt)).scalar() or 0
 
+    competitor = await db.get(Competitor, competitor_id)
+    meta_available_ads = competitor.meta_available_ads if competitor else None
+    meta_available_checked_at = competitor.meta_available_checked_at if competitor else None
+
     if total == 0:
-        return CompetitorStats()
+        return CompetitorStats(
+            meta_available_ads=meta_available_ads,
+            meta_available_checked_at=meta_available_checked_at,
+        )
 
     # Existing = approved or pending
     existing_stmt = select(func.count(Ad.id)).where(
@@ -62,10 +69,10 @@ async def _compute_stats_for_competitor(
     )
     running_7_plus = (await db.execute(running_stmt)).scalar() or 0
 
-    # Winning ads: still active after more than 30 days
+    # Winning ads: still active after at least `winning_days` days
     winning_stmt = select(func.count(Ad.id)).where(
         Ad.competitor_id == competitor_id,
-        winning_ad_filter(),
+        winning_ad_filter(winning_days),
     )
     winning = (await db.execute(winning_stmt)).scalar() or 0
 
@@ -113,6 +120,8 @@ async def _compute_stats_for_competitor(
         winning_ads=winning,
         winning_ads_pct=pct(winning, existing) if existing else 0.0,
         variants=int(variants),
+        meta_available_ads=meta_available_ads,
+        meta_available_checked_at=meta_available_checked_at,
         last_activity=last_activity,
     )
 
@@ -140,6 +149,7 @@ def _competitor_to_response(
 
 @router.get("/summary", response_model=CompetitorsSummary)
 async def get_competitors_summary(
+    winning_days: int = Query(WINNING_MIN_DAYS, description="Winning = active at least this many days"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -151,6 +161,10 @@ async def get_competitors_summary(
     # Competitors tracked (own brand is not a competitor)
     competitors_stmt = select(func.count(Competitor.id)).where(Competitor.is_own_brand == False)  # noqa: E712
     total_competitors = (await db.execute(competitors_stmt)).scalar() or 0
+    meta_available_total = (await db.execute(
+        select(func.coalesce(func.sum(Competitor.meta_available_ads), 0))
+        .where(Competitor.is_own_brand == False)  # noqa: E712
+    )).scalar() or 0
     active_competitors = (await db.execute(
         competitors_stmt.where(Competitor.status == "Active")
     )).scalar() or 0
@@ -179,7 +193,7 @@ async def get_competitors_summary(
     winning_stmt = (
         select(func.count(Ad.id))
         .join(Competitor, Competitor.id == Ad.competitor_id)
-        .where(Competitor.is_own_brand == False, winning_ad_filter())  # noqa: E712
+        .where(Competitor.is_own_brand == False, winning_ad_filter(winning_days))  # noqa: E712
     )
     winning = (await db.execute(winning_stmt)).scalar() or 0
 
@@ -214,6 +228,8 @@ async def get_competitors_summary(
         total_competitors=total_competitors,
         active_competitors=active_competitors,
         total_ads=total_ads,
+        meta_available_ads=meta_available_total,
+        winning_days=winning_days,
     )
 
 
@@ -223,6 +239,7 @@ async def list_competitors(
     priority_tier: Optional[str] = Query(None),
     niche: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    winning_days: int = Query(WINNING_MIN_DAYS, description="Winning = active at least this many days"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -245,7 +262,7 @@ async def list_competitors(
 
     responses = []
     for c in competitors:
-        stats = await _compute_stats_for_competitor(db, c.id)
+        stats = await _compute_stats_for_competitor(db, c.id, winning_days)
         responses.append(_competitor_to_response(c, stats))
     return responses
 

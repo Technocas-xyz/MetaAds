@@ -31,6 +31,10 @@ class Competitor(TimestampedBase):
     meta_ad_library_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     schedule_time: Mapped[time] = mapped_column(Time, default=time(3, 0), nullable=False)
     last_run: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Meta's own "~N results" count from the last successful scan — what the
+    # Ad Library shows right now, separate from the ads we have stored.
+    meta_available_ads: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    meta_available_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_by: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True

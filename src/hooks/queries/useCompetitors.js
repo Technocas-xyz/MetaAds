@@ -5,13 +5,14 @@ export const competitorKeys = {
   all:     () => ['competitors'],
   list:    (params) => ['competitors', 'list', params ?? {}],
   detail:  (id) => ['competitors', 'detail', id],
-  summary: () => ['competitors', 'summary'],
+  summary: (params) => ['competitors', 'summary', params ?? {}],
 }
 
 export function useCompetitors(params) {
   return useQuery({
     queryKey: competitorKeys.list(params),
     queryFn:  () => listCompetitors(params),
+    placeholderData: (prev) => prev,
   })
 }
 
@@ -23,10 +24,11 @@ export function useCompetitor(id) {
   })
 }
 
-export function useCompetitorsSummary() {
+export function useCompetitorsSummary(params) {
   return useQuery({
-    queryKey: competitorKeys.summary(),
-    queryFn:  getCompetitorsSummary,
+    queryKey: competitorKeys.summary(params),
+    queryFn:  () => getCompetitorsSummary(params),
+    placeholderData: (prev) => prev,  // keep numbers on screen while the threshold changes
   })
 }
 

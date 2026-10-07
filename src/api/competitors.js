@@ -16,7 +16,7 @@ export const createCompetitor = (data) =>
     ? mock(fx.competitor)
     : client.post('/competitors', data).then((r) => r.data)
 
-export const getCompetitorsSummary = () =>
+export const getCompetitorsSummary = (params) =>
   USE_MOCKS
     ? mock(fx.competitorsSummary)
-    : client.get('/competitors/summary').then((r) => r.data)
+    : client.get('/competitors/summary', { params }).then((r) => r.data)

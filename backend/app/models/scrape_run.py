@@ -24,5 +24,7 @@ class ScrapeRun(TimestampedBase):
     status: Mapped[str] = mapped_column(String(20), default="running", nullable=False)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # Meta's "~N results" count seen on this scan (None when the listing was blocked/unknown)
+    meta_reported_total: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     competitor = relationship("Competitor", back_populates="scrape_runs")

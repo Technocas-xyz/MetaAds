@@ -7,6 +7,7 @@ import {
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import Badge from '../../../components/ui/Badge'
 import { cn } from '../../../lib/utils'
+import { nicheLabel } from '../../../lib/constants'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function fmtDate(iso) {
@@ -35,7 +36,7 @@ function Trend({ up, value }) {
 function RowSkeleton() {
   return (
     <tr className="border-b border-gray-50">
-      {[160, 100, 80, 80, 80, 80, 72, 72, 72, 48, 88, 64].map((w, i) => (
+      {[160, 100, 80, 72, 72, 72, 72, 72, 72, 72, 48, 88, 64].map((w, i) => (
         <td key={i} className="px-4 py-2.5">
           <div className="h-3.5 animate-pulse rounded bg-gray-200" style={{ width: w }} />
         </td>
@@ -144,7 +145,7 @@ function TableRow({ competitor, expanded, onToggleExpand }) {
           <div className="flex max-w-[180px] flex-wrap gap-1">
             {competitor.niches.map((n) => (
               <span key={n} className="inline-flex w-fit items-center whitespace-nowrap rounded-md bg-gray-50 px-1.5 py-0.5 text-[11px] text-text-secondary ring-1 ring-gray-200">
-                {n}
+                {nicheLabel(n)}
               </span>
             ))}
           </div>
@@ -157,22 +158,36 @@ function TableRow({ competitor, expanded, onToggleExpand }) {
           </Badge>
         </td>
 
-        {/* Total Ads */}
+        {/* Meta Available — what the Ad Library shows right now */}
+        <td className="px-4 py-2.5">
+          {s.meta_available_ads != null ? (
+            <>
+              <p className="text-sm font-medium text-text-primary">{s.meta_available_ads.toLocaleString()}</p>
+              <p className="whitespace-nowrap text-xs text-text-tertiary" title={s.meta_available_checked_at ? new Date(s.meta_available_checked_at).toLocaleString() : ''}>
+                {s.meta_available_checked_at ? `as of ${fmtDate(s.meta_available_checked_at).date}` : ''}
+              </p>
+            </>
+          ) : (
+            <span className="text-xs text-text-tertiary">Not scanned</span>
+          )}
+        </td>
+
+        {/* Scraped (active in our system) */}
+        <td className="px-4 py-2.5">
+          <p className="text-sm font-medium text-text-primary">{s.existing_ads.toLocaleString()}</p>
+          <span className="whitespace-nowrap text-xs text-text-tertiary">{s.existing_ads_pct}% of total</span>
+        </td>
+
+        {/* Removed — scraped earlier, no longer on Meta */}
+        <td className="px-4 py-2.5">
+          <p className="text-sm font-medium text-text-primary">{s.removed_ads.toLocaleString()}</p>
+          <span className="whitespace-nowrap text-xs text-text-tertiary">{s.removed_ads_pct}% of total</span>
+        </td>
+
+        {/* Total stored (history) */}
         <td className="px-4 py-2.5">
           <p className="text-sm font-medium text-text-primary">{s.total_ads.toLocaleString()}</p>
           <Trend up={s.total_ads_trend_up} value={s.total_ads_trend} />
-        </td>
-
-        {/* Existing Ads */}
-        <td className="px-4 py-2.5">
-          <p className="text-sm font-medium text-text-primary">{s.existing_ads.toLocaleString()}</p>
-          <span className="text-xs text-text-tertiary">{s.existing_ads_pct}% of total</span>
-        </td>
-
-        {/* Removed Ads — hidden on md, shown lg+ */}
-        <td className="hidden px-4 py-2.5 lg:table-cell">
-          <p className="text-sm font-medium text-text-primary">{s.removed_ads.toLocaleString()}</p>
-          <span className="text-xs text-text-tertiary">{s.removed_ads_pct}% of total</span>
         </td>
 
         {/* Avg Duration */}
@@ -242,7 +257,7 @@ function TableRow({ competitor, expanded, onToggleExpand }) {
               <div>
                 <p className="text-xs text-text-tertiary">Removed Ads</p>
                 <p className="text-sm font-medium text-text-primary">{s.removed_ads.toLocaleString()}</p>
-                <span className="text-xs text-text-tertiary">{s.removed_ads_pct}% of total</span>
+                <span className="whitespace-nowrap text-xs text-text-tertiary">{s.removed_ads_pct}% of total</span>
               </div>
               <div>
                 <p className="text-xs text-text-tertiary">Variants</p>
@@ -283,18 +298,18 @@ function MobileCard({ competitor }) {
           <div className="mt-2 flex flex-wrap gap-1">
             {competitor.niches.map((n) => (
               <span key={n} className="rounded-md bg-gray-50 px-1.5 py-0.5 text-[11px] text-text-secondary ring-1 ring-gray-200">
-                {n}
+                {nicheLabel(n)}
               </span>
             ))}
           </div>
 
           <div className="mt-3 grid grid-cols-3 gap-3 border-t border-gray-50 pt-2.5">
             <div>
-              <p className="text-[11px] text-text-tertiary">Total Ads</p>
-              <p className="text-sm font-semibold text-text-primary">{s.total_ads.toLocaleString()}</p>
+              <p className="text-[11px] text-text-tertiary">Meta Available</p>
+              <p className="text-sm font-semibold text-text-primary">{s.meta_available_ads?.toLocaleString() ?? '—'}</p>
             </div>
             <div>
-              <p className="text-[11px] text-text-tertiary">Existing</p>
+              <p className="text-[11px] text-text-tertiary">Scraped</p>
               <p className="text-sm font-semibold text-text-primary">{s.existing_ads.toLocaleString()}</p>
             </div>
             <div>
@@ -379,23 +394,25 @@ function Pagination({ page, perPage, total, onPage, onPerPage }) {
 }
 
 // ── Column headers ─────────────────────────────────────────────────────────────
-const COLUMNS = [
+const columnsFor = (winningDays) => [
   { label: 'Competitor',         cls: '' },
   { label: 'Niche',              cls: '' },
   { label: 'Priority Tier',      cls: '' },
-  { label: 'Total Ads',          cls: '' },
-  { label: 'Existing Ads',       cls: '' },
-  { label: 'Removed Ads',        cls: 'hidden lg:table-cell' },
+  { label: 'Meta Available',     cls: '', title: "Ads Meta's Ad Library shows for this advertiser right now (its ~results count, incl. copies of one creative), from the last scan" },
+  { label: 'Scraped',            cls: '', title: 'Ads collected by our system that are still running' },
+  { label: 'Removed',            cls: '', title: 'Ads we scraped earlier that are no longer on Meta' },
+  { label: 'Total Ads',          cls: '', title: 'Everything stored: scraped + removed' },
   { label: 'Avg Duration',       cls: '' },
   { label: 'Running 7+ Days',    cls: '' },
-  { label: 'Winning (30d+)',     cls: '' },
+  { label: `Winning (${winningDays}d+)`, cls: '', title: `Still active after at least ${winningDays} days` },
   { label: 'Variants',           cls: 'hidden lg:table-cell' },
   { label: 'Last Activity',      cls: '' },
   { label: '',                   cls: '' },
 ]
 
 // ── Main export ────────────────────────────────────────────────────────────────
-export default function CompetitorsTable({ competitors, isLoading, page, perPage, total, onPage, onPerPage }) {
+export default function CompetitorsTable({ competitors, isLoading, page, perPage, total, winningDays = 30, onPage, onPerPage }) {
+  const COLUMNS = columnsFor(winningDays)
   const [expandedId, setExpandedId] = useState(null)
   const toggle = (id) => setExpandedId((prev) => (prev === id ? null : id))
 
@@ -450,6 +467,7 @@ export default function CompetitorsTable({ competitors, isLoading, page, perPage
                         i === COLUMNS.length - 1 && 'text-right',
                         c.cls
                       )}
+                      title={c.title}
                     >
                       {c.label}
                     </th>

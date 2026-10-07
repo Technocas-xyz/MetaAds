@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from app.scripts.run_scraper import PaginationMonitor, build_url  # noqa: E402
+from app.scripts.run_scraper import PaginationMonitor, browser_proxy, build_url  # noqa: E402
 
 
 def main(page_id: str) -> dict:
@@ -28,7 +28,7 @@ def main(page_id: str) -> dict:
         return result
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage",
+        browser = pw.chromium.launch(headless=True, proxy=browser_proxy(), args=["--no-sandbox", "--disable-dev-shm-usage",
                                                             "--disable-blink-features=AutomationControlled"])
         context = browser.new_context(
             storage_state=state_path,

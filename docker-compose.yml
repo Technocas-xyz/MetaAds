@@ -73,6 +73,8 @@ services:
       SSO_SHARED_SECRET: ${SSO_SHARED_SECRET:-}
       # Persisted browser session for the Ad Library scraper (backend_runtime volume)
       META_STORAGE_STATE_PATH: /app/runtime/meta_session.json
+      # Scraper browser leaves via the server's IPv6 address (see egress-proxy)
+      SCRAPER_PROXY_URL: http://172.22.0.1:8899
     # Chromium needs more shared memory than Docker's default 64MB
     shm_size: "1gb"
     depends_on:
@@ -90,6 +92,20 @@ services:
       retries: 5
     restart: unless-stopped
 
+
+  # Sends the scraper's traffic out over IPv6. Host network so it can use the
+  # server's IPv6 address; listens only on the Docker bridge, not publicly.
+  egress-proxy:
+    image: python:3.11-slim
+    container_name: ads-egress-proxy
+    network_mode: host
+    environment:
+      LISTEN_HOST: 172.22.0.1
+      LISTEN_PORT: "8899"
+    volumes:
+      - ./ops/ipv6_egress_proxy.py:/ipv6_egress_proxy.py:ro
+    command: python /ipv6_egress_proxy.py
+    restart: unless-stopped
 
   frontend:
     build:
