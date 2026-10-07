@@ -183,6 +183,28 @@ def _score_ad(ad: dict) -> float:
     return round(score, 2)
 
 
+# Same windows as Meta Ads Manager: "last N days" are full days ending yesterday.
+DATE_PRESET_LABELS = {
+    "maximum": "Lifetime",
+    "last_7d": "Last 7 days",
+    "last_14d": "Last 14 days",
+    "last_30d": "Last 30 days",
+    "this_month": "This month",
+}
+
+
+def _preset_range(date_preset: Optional[str]):
+    """(start, end) dates for a preset, inclusive; (None, None) means all dates."""
+    from datetime import date, timedelta
+    today = date.today()
+    if date_preset in ("last_7d", "last_14d", "last_30d"):
+        days = int(date_preset[5:-1])
+        return today - timedelta(days=days), today - timedelta(days=1)
+    if date_preset == "this_month":
+        return today.replace(day=1), today
+    return None, None
+
+
 @router.get("/report")
 async def get_performance_report(
     date_preset: Optional[str] = Query("maximum"),
@@ -198,7 +220,7 @@ async def get_performance_report(
     from app.models.facebook_owned_ad import (
         FacebookOwnedAd, FacebookAdInsightsDaily, FacebookAdActionsDaily, FacebookAdSyncRun
     )
-    from sqlalchemy import func, desc
+    from sqlalchemy import func, desc, true
     from decimal import Decimal
 
     # Ads of the configured account only — rows synced from an account used
@@ -213,6 +235,14 @@ async def get_performance_report(
     if not stored_ads:
         return {"ok": False, "error": "No ads stored yet. Run a Full Sync first.", "ads": []}
 
+    range_start, range_end = _preset_range(date_preset)
+
+    def in_range(column):
+        """Date filter for the selected preset (no-op for Lifetime)."""
+        if range_start is None:
+            return true()
+        return column.between(range_start, range_end)
+
     # For each ad, aggregate insights from daily rows
     processed = []
     for ad in stored_ads:
@@ -225,7 +255,10 @@ async def get_performance_report(
             func.sum(FacebookAdInsightsDaily.inline_link_clicks).label("inline_link_clicks"),
             func.min(FacebookAdInsightsDaily.date_start).label("date_start"),
             func.max(FacebookAdInsightsDaily.date_stop).label("date_stop"),
-        ).where(FacebookAdInsightsDaily.meta_ad_id == ad.meta_ad_id)
+        ).where(
+            FacebookAdInsightsDaily.meta_ad_id == ad.meta_ad_id,
+            in_range(FacebookAdInsightsDaily.date_start),
+        )
         ins_row = (await db.execute(ins_stmt)).one_or_none()
 
         impressions = int(ins_row.impressions or 0) if ins_row else 0
@@ -248,6 +281,7 @@ async def get_performance_report(
         ).where(
             FacebookAdActionsDaily.meta_ad_id == ad.meta_ad_id,
             FacebookAdActionsDaily.action_source == "actions",
+            in_range(FacebookAdActionsDaily.date_start),
         ).group_by(FacebookAdActionsDaily.action_type)
         action_rows = (await db.execute(action_stmt)).all()
         action_map = {r.action_type: float(r.total or 0) for r in action_rows}
@@ -259,6 +293,7 @@ async def get_performance_report(
         ).where(
             FacebookAdActionsDaily.meta_ad_id == ad.meta_ad_id,
             FacebookAdActionsDaily.action_source == "cost_per_action_type",
+            in_range(FacebookAdActionsDaily.date_start),
         ).group_by(FacebookAdActionsDaily.action_type)
         cost_rows = (await db.execute(cost_stmt)).all()
         # For cost_per_action, we need average not sum
@@ -404,7 +439,11 @@ async def get_performance_report(
         "source": "database",
         "account_id": settings.FB_AD_ACCOUNT_ID[:10] + "...",
         "api_version": settings.FB_API_VERSION,
-        "reporting_period": "stored daily data (all synced dates)",
+        "reporting_period": (
+            f"{DATE_PRESET_LABELS.get(date_preset, date_preset)} ({range_start:%b %d} – {range_end:%b %d, %Y})"
+            if range_start else "Lifetime (all synced dates)"
+        ),
+        "date_preset": date_preset if date_preset in DATE_PRESET_LABELS else "maximum",
         "ads_total": len(stored_ads),
         "ads_with_insights": sum(1 for a in processed if a["impressions"] > 0),
         "ads_without_insights": sum(1 for a in processed if a["impressions"] == 0),
