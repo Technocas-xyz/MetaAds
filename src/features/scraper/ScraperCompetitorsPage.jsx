@@ -65,7 +65,10 @@ export default function ScraperCompetitorsPage() {
           setAnalyzeAllProgress(status.progress)
         } else {
           setAnalyzeAllRunning(false)
-          if (analyzeAllProgress && analyzeAllProgress.completed > 0) {
+          if (status.job?.message) {
+            // Stopped early, e.g. every AI provider is out of credits.
+            toast.error(status.job.message, { duration: 10000 })
+          } else if (analyzeAllProgress && analyzeAllProgress.completed > 0) {
             toast.success(`Analysis complete: ${status.progress.completed} ads analyzed${status.progress.failed > 0 ? `, ${status.progress.failed} failed` : ''}`)
             refetch()
           }

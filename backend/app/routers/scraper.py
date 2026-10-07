@@ -499,6 +499,7 @@ async def toggle_schedule(
 # ─── Scrape All (batch) ───────────────────────────────────────────────────────
 
 import asyncio as _asyncio
+from app.services.ai_client import AIProvidersExhausted
 from app.services.job_controller import scrape_all_job, analyze_all_job, get_competitor_analyze_job
 
 _batch_running = False
@@ -651,8 +652,16 @@ async def _run_batch_analysis():
         BATCH_SIZE = 5
         DELAY_BETWEEN = 2  # seconds between each analysis (AI rate limit)
         DELAY_BETWEEN_BATCHES = 10  # extra pause every BATCH_SIZE
+        MAX_PROVIDER_WAIT = 20 * 60  # wait out AI limits shorter than this
+        pending_retry = []           # ads put back while providers were busy
 
-        for i, ad_id in enumerate(to_analyze):
+        def queue():
+            for item in to_analyze:
+                yield item
+            while pending_retry:
+                yield pending_retry.pop(0)
+
+        for i, ad_id in enumerate(queue()):
             # Check pause/stop before each ad
             if not await analyze_all_job.should_continue():
                 break
@@ -666,6 +675,22 @@ async def _run_batch_analysis():
                 if (i + 1) % 10 == 0:
                     log.info(f"[analyze-all] Progress: {analyze_all_job.completed}/{total}")
 
+            except AIProvidersExhausted as e:
+                # Every provider is busy. Short waits (per-minute limits) are
+                # sat out and the ad retried later; if nothing comes back soon
+                # (no credits, daily caps) stop instead of failing every ad.
+                if e.retry_in <= MAX_PROVIDER_WAIT:
+                    log.info(f"[analyze-all] All AI providers busy; waiting {int(e.retry_in)}s")
+                    waited = 0
+                    while waited < e.retry_in + 5 and await analyze_all_job.should_continue():
+                        await _asyncio.sleep(15)
+                        waited += 15
+                    pending_retry.append(ad_id)
+                    continue
+                analyze_all_job.message = str(e)[:300]
+                analyze_all_job.stop()
+                log.warning(f"[analyze-all] Stopped at {i}/{total}: {e}")
+                break
             except Exception as e:
                 _analysis_progress["failed"] += 1
                 analyze_all_job.failed += 1

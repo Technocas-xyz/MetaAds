@@ -18,11 +18,19 @@ class Settings(BaseSettings):
     XAI_MODEL: str = "grok-4.3"
     XAI_BASE_URL: str = "https://api.x.ai/v1"
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_API_KEY_2: str = ""  # optional second account; used when the first hits its daily cap
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o"
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
+
+    # Facebook Marketing API
+    FB_APP_ID: str = ""
+    FB_APP_SECRET: str = ""
+    FB_ACCESS_TOKEN: str = ""
+    FB_AD_ACCOUNT_ID: str = ""
+    FB_API_VERSION: str = "v21.0"
 
     # Qdrant
     QDRANT_URL: str = "http://localhost:6333"
