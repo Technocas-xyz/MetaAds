@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     XAI_MODEL: str = "grok-4.3"
     XAI_BASE_URL: str = "https://api.x.ai/v1"
     GROQ_API_KEY: str = ""
+    GROQ_API_KEY_2: str = ""  # optional second account; used when the first hits its daily cap
     GROQ_MODEL: str = "openai/gpt-oss-120b"
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o"

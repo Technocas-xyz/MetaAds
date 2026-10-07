@@ -34,15 +34,23 @@ UNAVAILABLE_COOLDOWN = 3600  # recheck a provider that ran out after an hour
 
 
 class AIProvidersExhausted(RuntimeError):
-    """No configured provider can take requests right now (credits/limits)."""
+    """No configured provider can take requests right now (credits/limits).
+
+    retry_in: seconds until the first provider is expected back.
+    """
+
+    def __init__(self, message: str, retry_in: float = UNAVAILABLE_COOLDOWN):
+        super().__init__(message)
+        self.retry_in = retry_in
 
 
 def _provider_order() -> list:
-    primary = "groq" if settings.AI_PROVIDER.lower() == "groq" else "xai"
-    secondary = "xai" if primary == "groq" else "groq"
-    order = [primary]
-    if (settings.GROQ_API_KEY if secondary == "groq" else settings.XAI_API_KEY):
-        order.append(secondary)
+    """Providers to try, in order. "groq2" is a second Groq account (own daily quota)."""
+    groq = ["groq"] + (["groq2"] if settings.GROQ_API_KEY_2 else [])
+    if settings.AI_PROVIDER.lower() == "groq":
+        order = groq + (["xai"] if settings.XAI_API_KEY else [])
+    else:
+        order = ["xai"] + (groq if settings.GROQ_API_KEY else [])
     return order
 
 
@@ -105,10 +113,13 @@ async def chat_completion(
         if _unavailable_until.get(provider, 0) > time.time():
             reasons.append(f"{provider}: unavailable (cached)")
             continue
-        call = _call_xai if provider == "xai" else _call_groq
         for attempt in range(RATE_LIMIT_RETRIES + 1):
             try:
-                content = await call(messages, temperature, max_tokens, json_mode)
+                if provider == "xai":
+                    content = await _call_xai(messages, temperature, max_tokens, json_mode)
+                else:
+                    key = settings.GROQ_API_KEY_2 if provider == "groq2" else settings.GROQ_API_KEY
+                    content = await _call_groq(messages, temperature, max_tokens, json_mode, api_key=key)
                 _last_model = _model_for(provider)
                 return content
             except Exception as exc:  # noqa: BLE001 — classified below
@@ -122,7 +133,12 @@ async def chat_completion(
                     reasons.append(f"{provider}: {str(exc)[:120]}")
                     break
                 raise
-    raise AIProvidersExhausted("No AI provider can take requests right now — " + " | ".join(reasons))
+    now = time.time()
+    retry_in = min((_unavailable_until.get(p, now) - now for p in _provider_order()), default=UNAVAILABLE_COOLDOWN)
+    raise AIProvidersExhausted(
+        "No AI provider can take requests right now — " + " | ".join(reasons),
+        retry_in=max(retry_in, 0),
+    )
 
 
 async def _call_xai(messages, temperature, max_tokens, json_mode) -> str:
@@ -150,11 +166,11 @@ async def _call_xai(messages, temperature, max_tokens, json_mode) -> str:
     return content
 
 
-async def _call_groq(messages, temperature, max_tokens, json_mode) -> str:
+async def _call_groq(messages, temperature, max_tokens, json_mode, api_key: str = "") -> str:
     """Call Groq (fallback)."""
     from groq import AsyncGroq
 
-    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+    client = AsyncGroq(api_key=api_key or settings.GROQ_API_KEY)
 
     kwargs = {
         "model": settings.GROQ_MODEL,
