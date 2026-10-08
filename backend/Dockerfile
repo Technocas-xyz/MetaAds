@@ -17,6 +17,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Must run AFTER pip install because the playwright package is required
 RUN playwright install --with-deps chromium
 
+# Also install Google Chrome: unlike bundled Chromium it ships the H.264 codec,
+# so Meta renders real video ad creatives instead of a "trouble playing" error.
+# Chrome has no Linux arm64 build, so don't fail the image build if it's missing.
+RUN playwright install chrome || echo "WARNING: Google Chrome not installed - video ad creatives will be missing"
+
 # Copy application code
 COPY . .
 
