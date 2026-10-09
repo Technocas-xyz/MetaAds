@@ -25,6 +25,23 @@ logger = logging.getLogger(__name__)
 
 AD_LIBRARY_BASE = "https://www.facebook.com/ads/library/"
 
+# Playwright's bundled Chromium ships without the H.264 codec, so Meta swaps a
+# video ad's player for an error message ("Sorry, we're having trouble ...").
+# When the scraper runs Google Chrome instead the codec is present and the real
+# creative loads, but any text matching this message is never real ad copy.
+PLAYER_ERROR_PHRASES = (
+    "having trouble with playing this video",
+    "having trouble playing this video",
+)
+
+
+def is_player_error(text: Optional[str]) -> bool:
+    """True when `text` is Meta's video-player error (codec missing), not ad copy."""
+    if not text:
+        return False
+    lowered = text.lower()
+    return any(phrase in lowered for phrase in PLAYER_ERROR_PHRASES)
+
 KNOWN_CTA_LABELS = {
     "Learn More", "Shop Now", "Sign Up", "Get Offer", "Download",
     "Apply Now", "Book Now", "Contact Us", "Send Message", "Subscribe",
@@ -484,6 +501,7 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
     stats = {
         "sweep_queries": 0, "covered_results": 0, "cards": 0, "skipped": 0, "real_ids": 0, "synth_ids": 0, "dates": 0,
         "dropped_empty": 0, "dropped_error": 0, "dup_across_slices": 0,
+        "video_unplayable": 0,
     }
 
     def elapsed() -> float:
@@ -529,16 +547,41 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
     proxy = browser_proxy()
     logger.info(f"Network: {'via ' + proxy['server'] if proxy else 'direct'}")
 
+    launch_args = [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-blink-features=AutomationControlled",
+    ]
+
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            headless=True,
-            proxy=proxy,
-            args=[
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-blink-features=AutomationControlled",
-            ],
-        )
+        # Prefer Google Chrome: unlike Playwright's bundled Chromium it ships the
+        # H.264 codec, so Meta renders the real video creative instead of the
+        # "having trouble playing this video" error. Fall back to bundled
+        # Chromium if Chrome is unavailable (e.g. Linux arm64 has no Chrome build).
+        channel = os.getenv("SCRAPER_BROWSER_CHANNEL", "chrome").strip()
+        browser = None
+        if channel:
+            try:
+                browser = pw.chromium.launch(
+                    channel=channel,
+                    headless=True,
+                    proxy=proxy,
+                    args=launch_args,
+                )
+                logger.info(f"Browser: Google Chrome (channel={channel}) v{browser.version}")
+            except Exception as e:
+                logger.warning(
+                    f"Could not launch browser channel '{channel}' ({e}); "
+                    f"falling back to bundled Chromium — video ad creatives may be missing"
+                )
+                browser = None
+        if browser is None:
+            browser = pw.chromium.launch(
+                headless=True,
+                proxy=proxy,
+                args=launch_args,
+            )
+            logger.info(f"Browser: bundled Chromium v{browser.version}")
 
         context_kwargs = {
             "viewport": {"width": 1920, "height": 1080},
@@ -767,7 +810,12 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                             stats["skipped"] += 1
                             fresh_media = _extract_media_only(card, wide_card)
                             fresh_media["library_id"] = library_id
-                            if needs_image_ids and library_id in needs_image_ids:
+                            if is_player_error(wide_text):
+                                # Video ad whose player failed (missing codec):
+                                # mark it a video and don't capture the grey error box.
+                                fresh_media["is_video"] = True
+                                stats["video_unplayable"] += 1
+                            elif needs_image_ids and library_id in needs_image_ids:
                                 fresh_media["screenshot_url"] = capture_screenshot(card, library_id, timestamp)
                             fresh_media["_is_refresh"] = True
                             results.append(fresh_media)
@@ -821,7 +869,16 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                 return None
 
         def _extract_ad(card, wide_card, full_text, wide_text, library_id, idx, timestamp) -> Dict[str, Any]:
-            screenshot_url = capture_screenshot(card, library_id or str(idx), timestamp)
+            # Meta renders a video ad's player as an error message when the browser
+            # lacks the H.264 codec. The card screenshot would show the grey error
+            # box, so skip it (the next run with Chrome re-captures the creative),
+            # and treat the ad as a video even though no <video> element loaded.
+            player_error = is_player_error(wide_text) or is_player_error(full_text)
+            if player_error:
+                screenshot_url = None
+                stats["video_unplayable"] += 1
+            else:
+                screenshot_url = capture_screenshot(card, library_id or str(idx), timestamp)
 
             ad = {
                 "library_id": library_id,
@@ -847,7 +904,7 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                 els = card.query_selector_all("a span, span[dir='auto'], strong")
                 for el in els:
                     t = (el.text_content() or "").strip()
-                    if t and len(t) > 2 and len(t) < 60 and t not in NON_AD_TEXT:
+                    if t and len(t) > 2 and len(t) < 60 and t not in NON_AD_TEXT and not is_player_error(t):
                         if not t.startswith("Started") and not t.startswith("Library"):
                             ad["advertiser_name"] = t
                             break
@@ -860,7 +917,7 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                 texts = []
                 for b in blocks:
                     t = (b.text_content() or "").strip()
-                    if t and len(t) > 10 and t not in NON_AD_TEXT and not t.startswith("Started"):
+                    if t and len(t) > 10 and t not in NON_AD_TEXT and not t.startswith("Started") and not is_player_error(t):
                         if t != ad["advertiser_name"] and t not in texts:
                             texts.append(t)
                 if len(texts) >= 2:
@@ -875,7 +932,9 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
 
             # ── Creative image + Video (card first, then wide card) ───
             media = _extract_media_only(card, wide_card)
-            ad["is_video"] = media["is_video"]
+            # A player error means this is a video ad whose player failed to load,
+            # so no <video> element was found — force is_video regardless.
+            ad["is_video"] = media["is_video"] or player_error
             ad["ad_video_url"] = media["ad_video_url"]
             ad["video_poster_url"] = media["video_poster_url"]
             ad["ad_creative_url"] = media["ad_creative_url"] or extract_creative_image_from_element(wide_card)
@@ -1088,6 +1147,7 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
             f"  Dup across slices: {stats['dup_across_slices']}\n"
             f"  Dropped (empty):   {stats['dropped_empty']}\n"
             f"  Dropped (error):   {stats['dropped_error']}\n"
+            f"  Video unplayable:  {stats['video_unplayable']}\n"
             f"  Real IDs:          {stats['real_ids']}\n"
             f"  Synthetic IDs:     {stats['synth_ids']}\n"
             f"  Dates parsed:      {stats['dates']}\n"
