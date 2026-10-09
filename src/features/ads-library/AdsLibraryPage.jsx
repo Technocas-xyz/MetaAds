@@ -165,7 +165,11 @@ export default function AdsLibraryPage() {
 
   // ── Bulk actions ───────────────────────────────────────────────────────────
   const handleBulkAnalyze = () => {
-    bulkAnalyze.mutate([...selectedIds])
+    const count = selectedIds.size
+    bulkAnalyze.mutate([...selectedIds], {
+      onSuccess: () => toast.success(`Analyzed ${count} ad${count !== 1 ? 's' : ''}`),
+      onError:   () => toast.error('Analysis failed — try again'),
+    })
     clearSelection()
   }
 
@@ -237,7 +241,10 @@ export default function AdsLibraryPage() {
         ad={previewAd}
         open={!!previewAd}
         onClose={() => setPreviewAd(null)}
-        onAnalyze={(id) => analyzeAd.mutate(id)}
+        onAnalyze={(id) => analyzeAd.mutate(id, {
+          onSuccess: () => toast.success('AI analysis complete'),
+          onError:   () => toast.error('Analysis failed — try again'),
+        })}
         onReview={() => {}}
       />
 

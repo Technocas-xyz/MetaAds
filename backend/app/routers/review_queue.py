@@ -333,8 +333,44 @@ async def bulk_rerun_ai(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Queue items to re-run AI analysis (stub for now — analyses run synchronously)."""
-    return BulkResult(queued=len(payload.ids))
+    """Re-queue the ads behind these review items for AI analysis.
+
+    Deletes each ad's existing analysis so it becomes pending again, then lets
+    the shared Analyze-All batch job pick them up. Returns how many ads were
+    actually queued (resolved + having an analysis to clear is not required —
+    an ad with no analysis is already pending).
+    """
+    from app.services.analysis_queue import note_user_started, start_if_pending
+
+    # Resolve review-item ids -> ad ids (ignore ids that don't resolve).
+    item_ids: list[UUID] = []
+    for raw in payload.ids:
+        try:
+            item_ids.append(UUID(raw))
+        except (ValueError, TypeError):
+            continue
+
+    ad_ids: set[UUID] = set()
+    if item_ids:
+        rows = (await db.execute(
+            select(ReviewQueue.ad_id).where(ReviewQueue.id.in_(item_ids))
+        )).scalars().all()
+        ad_ids = {a for a in rows if a is not None}
+
+    if not ad_ids:
+        return BulkResult(queued=0)
+
+    # Delete existing analyses for just these ads so they return to pending.
+    await db.execute(
+        AdAnalysis.__table__.delete().where(AdAnalysis.ad_id.in_(ad_ids))
+    )
+    await db.commit()
+
+    # Hand off to the shared batch job (clears any prior manual Stop first).
+    note_user_started()
+    await start_if_pending("re-run requested")
+
+    return BulkResult(queued=len(ad_ids))
 
 
 @router.post("/review-queue/bulk-reassign", response_model=BulkResult)

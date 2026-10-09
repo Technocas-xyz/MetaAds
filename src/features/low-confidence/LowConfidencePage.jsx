@@ -1,10 +1,13 @@
 import { useMemo } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Settings, AlertTriangle, RefreshCw, Filter } from 'lucide-react'
 import Breadcrumb from '../../components/layout/Breadcrumb'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import { useReviewQueue } from '../../hooks/queries/useReview'
+import { rerunLowConfidence } from '../../api/ai'
 import ReviewQueueTable from '../review/ReviewQueueTable'
 
 // Mirrors settings fixture; swap for useSettings() when the API is ready
@@ -80,6 +83,23 @@ export default function LowConfidencePage() {
   const { data: queueData, isLoading } = useReviewQueue()
   const allItems = queueData?.data ?? []
 
+  // Re-run All: re-queue every below-threshold ad for AI analysis.
+  const rerunAll = useMutation({
+    mutationFn: rerunLowConfidence,
+    onSuccess: (data) => {
+      const n = data?.queued ?? 0
+      if (n > 0) toast.success(`Queued ${n} ad${n !== 1 ? 's' : ''} for re-analysis`)
+      else toast('No low-confidence ads to re-run', { icon: 'ℹ️' })
+    },
+    onError: () => toast.error('Failed to queue re-analysis — try again'),
+  })
+
+  const handleRerunAll = () => {
+    if (rerunAll.isPending) return
+    if (!window.confirm('Re-run AI analysis on all low-confidence ads? This re-queues them for the batch analyzer.')) return
+    rerunAll.mutate()
+  }
+
   // Pre-filter: only ads below the configured threshold
   const lowItems = useMemo(
     () => allItems.filter((r) => r.confidence_score < CONFIDENCE_THRESHOLD),
@@ -137,7 +157,16 @@ export default function LowConfidencePage() {
         subtitle="Ads with AI confidence below the configured threshold"
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" icon={RefreshCw}>Re-run All</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={RefreshCw}
+              onClick={handleRerunAll}
+              loading={rerunAll.isPending}
+              disabled={rerunAll.isPending}
+            >
+              Re-run All
+            </Button>
             <Button variant="outline" size="sm" icon={Filter}>Filter</Button>
             <Button variant="outline" size="sm" icon={Settings} to="/settings">
               Adjust Threshold
