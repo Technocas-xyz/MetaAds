@@ -2,8 +2,20 @@
 Offer library schemas — aligned with frontend fixture (src/api/_fixtures/offers.js).
 """
 
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel, Field
+
+
+# ---------- Filter options ----------
+
+class FilterCompetitor(BaseModel):
+    id: str
+    name: str
+
+
+class OfferFilterOptions(BaseModel):
+    competitors: List[FilterCompetitor] = Field(default_factory=list)
+    offer_types: List[str] = Field(default_factory=list)
 
 
 # ---------- Summary ----------
@@ -34,7 +46,8 @@ class OfferTypeDistItem(BaseModel):
 
 class OfferPerformanceItem(BaseModel):
     type: str
-    avg_score: float
+    avg_days: float          # average ads.days_running for this offer type
+    ads: int = 0             # number of ads behind the bar (for the tooltip)
     color: str
 
 
@@ -66,7 +79,10 @@ class OfferRow(BaseModel):
     type: Optional[str] = None
     mentions: int = 0
     avg_confidence: float = 0.0
-    trending: float = 0.0
+    avg_days_running: float = 0.0
+    # Percent change (float), "New" when there's no earlier period, or null when
+    # there isn't enough data. Never a made-up number.
+    trending: Union[float, str, None] = None
     competitors: List[OfferCompetitorRef] = Field(default_factory=list)
     extra_competitors: int = 0
     example_ads: List[str] = Field(default_factory=list)

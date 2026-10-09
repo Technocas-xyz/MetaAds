@@ -16,7 +16,6 @@ class FilterCompetitor(BaseModel):
 class HookFilterOptions(BaseModel):
     competitors: List[FilterCompetitor] = Field(default_factory=list)
     hook_types: List[str] = Field(default_factory=list)
-    offer_types: List[str] = Field(default_factory=list)
 
 
 # ---------- Summary ----------
@@ -81,7 +80,6 @@ class HookRow(BaseModel):
     text: Optional[str] = None
     description: Optional[str] = None
     type: Optional[str] = None
-    offer_type: Optional[str] = None
     mentions: int = 0
     avg_confidence: float = 0.0
     avg_days_running: float = 0.0

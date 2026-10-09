@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useMemo, useEffect } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Download, Search, Filter, TrendingUp,
   Layers, MessageSquare, Award, BarChart2, Eye,
@@ -26,8 +26,33 @@ import {
   useAnglesPerf,
   useAnglesTrend,
   useAnglesTable,
+  useAnglesFilterOptions,
 } from '../../hooks/queries/useLibraries'
 import { cn } from '../../lib/utils'
+
+// Deterministic avatar color from any id string (works for UUIDs; Number(id)
+// was NaN for UUIDs and left avatars invisible).
+function avatarColor(key) {
+  const s = String(key ?? '')
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return AVATAR_BG[h % AVATAR_BG.length]
+}
+
+// Trending can be a number (percent), the string "New", or null (dash).
+function TrendingValue({ value }) {
+  if (value === 'New') {
+    return <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-primary-600">New</span>
+  }
+  if (value === null || value === undefined) {
+    return <span className="text-xs font-semibold text-text-tertiary">—</span>
+  }
+  return (
+    <span className={cn('inline-flex items-center gap-0.5 text-xs font-semibold', value >= 0 ? 'text-success-600' : 'text-danger-600')}>
+      {value >= 0 ? '↑' : '↓'} {Math.abs(value)}%
+    </span>
+  )
+}
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50]
 const TREND_TYPES       = ['Price', 'Quality', 'Speed', 'Benefit']
@@ -165,7 +190,7 @@ function AngleDonutCard({ data, total, isLoading }) {
   )
 }
 
-// ── Bar — Angle Performance ───────────────────────────────────────────────────
+// ── Bar — Angle Longevity (Avg Days Running) ──────────────────────────────────
 function PerfBarTip({ active, payload }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
@@ -173,7 +198,10 @@ function PerfBarTip({ active, payload }) {
     <div className="rounded-lg border border-border-default bg-white px-3 py-2 shadow-lg">
       <p className="text-xs font-medium text-text-primary">{d.name}</p>
       <p className="mt-0.5 text-sm font-bold" style={{ color: d.color }}>
-        Avg. {d.avg_score}%
+        Avg. {d.avg_days} days
+      </p>
+      <p className="mt-0.5 text-[11px] text-text-secondary">
+        {d.ads} ad{d.ads !== 1 ? 's' : ''}
       </p>
     </div>
   )
@@ -181,7 +209,7 @@ function PerfBarTip({ active, payload }) {
 
 function AnglePerfBarCard({ data, isLoading }) {
   return (
-    <Card title="Angle Performance (Avg. Confidence Score)">
+    <Card title="Angle Longevity (Avg. Days Running)">
       {isLoading ? (
         <div className="h-52 animate-pulse rounded-lg bg-gray-100" />
       ) : (
@@ -200,17 +228,15 @@ function AnglePerfBarCard({ data, isLoading }) {
                 tick={{ fontSize: 10, fill: '#94A3B8' }}
                 axisLine={false}
                 tickLine={false}
-                domain={[0, 100]}
-                tickFormatter={(v) => `${v}%`}
                 width={32}
               />
               <RechartsTip content={<PerfBarTip />} cursor={{ fill: 'transparent' }} />
-              <Bar dataKey="avg_score" radius={[4, 4, 0, 0]} maxBarSize={40}>
+              <Bar dataKey="avg_days" radius={[4, 4, 0, 0]} maxBarSize={40}>
                 {data.map((d, i) => <Cell key={i} fill={d.color} />)}
                 <LabelList
-                  dataKey="avg_score"
+                  dataKey="avg_days"
                   position="top"
-                  formatter={(v) => `${v}%`}
+                  formatter={(v) => `${v}d`}
                   style={{ fontSize: 9, fontWeight: 600, fill: '#64748B' }}
                 />
               </Bar>
@@ -293,11 +319,13 @@ function AngleTrendLineCard({ data, isLoading }) {
 }
 
 // ── Filter Bar ────────────────────────────────────────────────────────────────
-const OFFER_OPTIONS      = ['All Offers', 'Discount 40%', 'Free Shipping', 'Bundle Deal', 'BOGO', 'Limited Time']
-const COMPETITOR_OPTIONS = ['All Competitors', 'PrintMagic Pro', 'DTFworld', 'PrintZone', 'ThreadBeast', 'VividPrints']
+// This page filters by its own dimension (Angle) plus Competitor and Confidence.
 const CONFIDENCE_OPTIONS = ['All', 'High (80%+)', 'Medium (50–79%)', 'Low (<50%)']
 
-function FilterBar({ filters, onChange, onApply, onClear }) {
+function FilterBar({ filters, onChange, onApply, onClear, options }) {
+  const angleOpts      = ['All Angles', ...(options?.angles ?? [])]
+  const competitorOpts = options?.competitors ?? []
+
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-card border border-border-default bg-white p-4 shadow-card">
       <div className="relative min-w-[180px] flex-1">
@@ -314,23 +342,42 @@ function FilterBar({ filters, onChange, onApply, onClear }) {
         />
       </div>
 
-      {[
-        { key: 'hookType',   label: 'Hook Type',  options: ['All Types', ...HOOK_TYPES] },
-        { key: 'offerType',  label: 'Offer Type', options: OFFER_OPTIONS },
-        { key: 'competitor', label: 'Competitor', options: COMPETITOR_OPTIONS },
-        { key: 'confidence', label: 'Confidence', options: CONFIDENCE_OPTIONS },
-      ].map(({ key, label, options }) => (
-        <div key={key} className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-text-secondary">{label}</label>
-          <select
-            value={filters[key]}
-            onChange={(e) => onChange(key, e.target.value)}
-            className="h-9 rounded-btn border border-border-default bg-white px-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            {options.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </div>
-      ))}
+      {/* Angle (this page's dimension) */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-text-secondary">Angle</label>
+        <select
+          value={filters.angle}
+          onChange={(e) => onChange('angle', e.target.value)}
+          className="h-9 rounded-btn border border-border-default bg-white px-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          {angleOpts.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
+
+      {/* Competitor — value is the competitor id, label is the name */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-text-secondary">Competitor</label>
+        <select
+          value={filters.competitor}
+          onChange={(e) => onChange('competitor', e.target.value)}
+          className="h-9 rounded-btn border border-border-default bg-white px-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          <option value="All Competitors">All Competitors</option>
+          {competitorOpts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </div>
+
+      {/* Confidence */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-text-secondary">Confidence</label>
+        <select
+          value={filters.confidence}
+          onChange={(e) => onChange('confidence', e.target.value)}
+          className="h-9 rounded-btn border border-border-default bg-white px-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          {CONFIDENCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
 
       <div className="flex gap-2">
         <Button variant="outline" size="sm" icon={X} onClick={onClear}>Clear</Button>
@@ -377,7 +424,7 @@ function CompetitorAvatars({ competitors, extra }) {
           title={c.name}
           className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-white"
           style={{
-            backgroundColor: AVATAR_BG[Number(c.id) % AVATAR_BG.length],
+            backgroundColor: avatarColor(c.id),
             zIndex: competitors.length - i,
           }}
         >
@@ -502,14 +549,7 @@ function AnglesTable({ rows, total, page, pageSize, onPageChange, onPageSizeChan
 
                 {/* Trending */}
                 <td className="px-4 py-3 text-right">
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-0.5 text-xs font-semibold',
-                      row.trending >= 0 ? 'text-success-600' : 'text-danger-600',
-                    )}
-                  >
-                    {row.trending >= 0 ? '↑' : '↓'} {Math.abs(row.trending)}%
-                  </span>
+                  <TrendingValue value={row.trending} />
                 </td>
 
                 {/* Example Ads — 4 thumbnails */}
@@ -584,9 +624,7 @@ function AnglesTable({ rows, total, page, pageSize, onPageChange, onPageSizeChan
             <div className="flex flex-wrap items-center gap-3 text-xs">
               <span className="text-text-secondary">{row.mentions.toLocaleString()} mentions</span>
               <ConfScore score={row.avg_confidence} />
-              <span className={cn('font-semibold', row.trending >= 0 ? 'text-success-600' : 'text-danger-600')}>
-                {row.trending >= 0 ? '↑' : '↓'} {Math.abs(row.trending)}%
-              </span>
+              <TrendingValue value={row.trending} />
             </div>
             <div className="flex gap-1">
               {row.example_ads.map((url, i) => (
@@ -712,8 +750,14 @@ function AngleDetailDrawer({ angle, onClose }) {
                     { label: 'Avg. Confidence', value: `${angle.avg_confidence}%`,      colorCls: null },
                     {
                       label:    'Trend',
-                      value:    `${angle.trending >= 0 ? '+' : ''}${angle.trending}%`,
-                      colorCls: angle.trending >= 0 ? 'text-success-600' : 'text-danger-600',
+                      value:    angle.trending === 'New'
+                        ? 'New'
+                        : (angle.trending === null || angle.trending === undefined)
+                          ? '—'
+                          : `${angle.trending >= 0 ? '+' : ''}${angle.trending}%`,
+                      colorCls: typeof angle.trending === 'number'
+                        ? (angle.trending >= 0 ? 'text-success-600' : 'text-danger-600')
+                        : null,
                     },
                   ].map(({ label, value, colorCls }) => (
                     <div
@@ -734,12 +778,6 @@ function AngleDetailDrawer({ angle, onClose }) {
 
                 {/* Meta */}
                 <div className="space-y-2">
-                  {angle.offer_type && (
-                    <div className="flex items-center gap-3">
-                      <span className="w-28 flex-shrink-0 text-xs text-text-tertiary">Offer Type</span>
-                      <Badge color="gray">{angle.offer_type}</Badge>
-                    </div>
-                  )}
                   <div className="flex items-center gap-3">
                     <span className="w-28 flex-shrink-0 text-xs text-text-tertiary">First Seen</span>
                     <span className="text-xs font-medium text-text-primary">{angle.first_seen}</span>
@@ -771,7 +809,7 @@ function AngleDetailDrawer({ angle, onClose }) {
                       >
                         <div
                           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                          style={{ backgroundColor: AVATAR_BG[Number(c.id) % AVATAR_BG.length] }}
+                          style={{ backgroundColor: avatarColor(c.id) }}
                         >
                           {c.initials}
                         </div>
@@ -820,43 +858,81 @@ function AngleDetailDrawer({ angle, onClose }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 const DEFAULT_FILTERS = {
   search:     '',
-  hookType:   'All Types',
-  offerType:  'All Offers',
+  angle:      'All Angles',
   competitor: 'All Competitors',
   confidence: 'All',
+  days:       null,          // date-range picker; null = All time (no date filter), the default
+}
+
+const CONFIDENCE_RANGE = {
+  'High (80%+)':     { min_confidence: 80 },
+  'Medium (50–79%)': { min_confidence: 50, max_confidence: 79.999 },
+  'Low (<50%)':      { max_confidence: 49.999 },
+}
+
+// One shared param set for every endpoint (cards, charts, table).
+function buildParams(a) {
+  const p = {}
+  if (a.search) p.search = a.search
+  if (a.angle && a.angle !== 'All Angles') p.angle = a.angle
+  if (a.competitor && a.competitor !== 'All Competitors') p.competitor_id = a.competitor
+  Object.assign(p, CONFIDENCE_RANGE[a.confidence] ?? {})
+  if (a.days) {
+    const from = new Date()
+    from.setUTCDate(from.getUTCDate() - (Number(a.days) - 1))
+    p.date_from = from.toISOString().slice(0, 10)
+    p.days = Number(a.days)
+  }
+  return p
+}
+
+function filtersFromSearchParams(sp) {
+  const f = { ...DEFAULT_FILTERS }
+  for (const key of Object.keys(DEFAULT_FILTERS)) {
+    const v = sp.get(key)
+    if (v !== null && v !== '') f[key] = key === 'days' ? Number(v) : v
+  }
+  return f
+}
+
+function searchParamsFromFilters(f) {
+  const out = {}
+  for (const key of Object.keys(DEFAULT_FILTERS)) {
+    if (String(f[key]) !== String(DEFAULT_FILTERS[key])) out[key] = String(f[key])
+  }
+  return out
 }
 
 export default function AngleLibraryPage() {
-  const [filters, setFilters]         = useState(DEFAULT_FILTERS)
-  const [applied, setApplied]         = useState(DEFAULT_FILTERS)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [filters, setFilters]         = useState(() => filtersFromSearchParams(searchParams))
+  const [applied, setApplied]         = useState(() => filtersFromSearchParams(searchParams))
   const [page, setPage]               = useState(1)
   const [pageSize, setPageSize]       = useState(10)
   const [selectedAngle, setSelectedAngle] = useState(null)
 
-  // Build server-side query params
-  const queryParams = useMemo(() => {
-    const p = {}
-    if (applied.search) p.search = applied.search
-    if (applied.hookType && applied.hookType !== 'All Types') p.angle_type = applied.hookType
-    return p
-  }, [applied])
+  const { data: options } = useAnglesFilterOptions()
 
-  const { data: summary,   isLoading: sumLoading   } = useAnglesSummary()
-  const { data: typeDist,  isLoading: distLoading  } = useAnglesTypeDist()
-  const { data: perfData,  isLoading: perfLoading  } = useAnglesPerf()
-  const { data: trendData, isLoading: trendLoading } = useAnglesTrend()
+  const queryParams = useMemo(() => buildParams(applied), [applied])
+
+  const { data: summary,   isLoading: sumLoading   } = useAnglesSummary(queryParams)
+  const { data: typeDist,  isLoading: distLoading  } = useAnglesTypeDist(queryParams)
+  const { data: perfData,  isLoading: perfLoading  } = useAnglesPerf(queryParams)
+  const { data: trendData, isLoading: trendLoading } = useAnglesTrend(queryParams)
   const { data: tableData, isLoading: tableLoading } = useAnglesTable(queryParams)
 
   const changeFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }))
 
   const applyFilters = () => {
     setApplied(filters)
+    setSearchParams(searchParamsFromFilters(filters), { replace: true })
     setPage(1)
   }
 
   const clearFilters = () => {
     setFilters(DEFAULT_FILTERS)
     setApplied(DEFAULT_FILTERS)
+    setSearchParams({}, { replace: true })
     setPage(1)
   }
 
@@ -865,25 +941,8 @@ export default function AngleLibraryPage() {
     setPage(1)
   }
 
-  // Additional client-side filtering for fields not supported by backend
-  const filtered = useMemo(() => {
-    if (!tableData) return []
-    return tableData.filter((row) => {
-      if (
-        applied.competitor !== 'All Competitors' &&
-        !row.competitors.some((c) => c.name === applied.competitor)
-      )
-        return false
-      if (applied.confidence === 'High (80%+)' && row.avg_confidence < 80) return false
-      if (
-        applied.confidence === 'Medium (50–79%)' &&
-        (row.avg_confidence < 50 || row.avg_confidence >= 80)
-      )
-        return false
-      if (applied.confidence === 'Low (<50%)' && row.avg_confidence >= 50) return false
-      return true
-    })
-  }, [tableData, applied])
+  // All filtering is server-side; the table reflects queryParams directly.
+  const filtered = tableData ?? []
 
   const paginated = useMemo(
     () => filtered.slice((page - 1) * pageSize, page * pageSize),
@@ -901,7 +960,16 @@ export default function AngleLibraryPage() {
         subtitle="Explore all competitive angles detected across your tracked ad library."
         rightSlot={
           <div className="flex items-center gap-2">
-            <DateRangePicker />
+            <DateRangePicker
+              value={filters.days}
+              onChange={(preset) => {
+                const next = { ...filters, days: preset.days }
+                setFilters(next)
+                setApplied(next)
+                setSearchParams(searchParamsFromFilters(next), { replace: true })
+                setPage(1)
+              }}
+            />
             <Button variant="outline" size="sm" icon={Download}>Export</Button>
           </div>
         }
@@ -948,9 +1016,9 @@ export default function AngleLibraryPage() {
                       {summary?.top_performing_angle?.name ?? '—'}
                     </p>
                     <p className="mt-2 text-xs text-text-secondary">
-                      Avg score:{' '}
+                      Avg. runtime:{' '}
                       <span className="font-semibold text-success-600">
-                        {summary?.top_performing_angle?.avg_score}%
+                        {summary?.top_performing_angle ? `${summary.top_performing_angle.avg_score} days` : '—'}
                       </span>
                     </p>
                   </div>
@@ -997,6 +1065,7 @@ export default function AngleLibraryPage() {
       {/* Filter bar */}
       <FilterBar
         filters={filters}
+        options={options}
         onChange={changeFilter}
         onApply={applyFilters}
         onClear={clearFilters}
