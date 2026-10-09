@@ -4,14 +4,16 @@ import { Calendar, ChevronDown } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const PRESETS = [
+  { label: 'All time',     days: null },
   { label: 'Last 7 days',  days: 7  },
-  { label: 'Last 14 days', days: 14 },
   { label: 'Last 30 days', days: 30 },
   { label: 'Last 90 days', days: 90 },
 ]
 
-export default function DateRangePicker({ onChange }) {
-  const [selected, setSelected] = useState(PRESETS[0])
+export default function DateRangePicker({ onChange, value }) {
+  // Default to "All time" so long-running ads are included on first load.
+  const initial = PRESETS.find((p) => p.days === value) ?? PRESETS[0]
+  const [selected, setSelected] = useState(initial)
   const [open, setOpen] = useState(false)
 
   const pick = (preset) => {
@@ -49,7 +51,7 @@ export default function DateRangePicker({ onChange }) {
         >
           {PRESETS.map((p) => (
             <button
-              key={p.days}
+              key={p.label}
               onClick={() => pick(p)}
               className={cn(
                 'flex w-full items-center rounded-lg px-3 py-2 text-sm transition-colors hover:bg-gray-50',

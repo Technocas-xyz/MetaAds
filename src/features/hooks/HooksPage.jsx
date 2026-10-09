@@ -340,7 +340,6 @@ const CONFIDENCE_OPTIONS = ['All', 'High (80%+)', 'Medium (50–79%)', 'Low (<50
 function FilterBar({ filters, onChange, onApply, onClear, options }) {
   // Dropdown options come entirely from the backend's analyzed ads.
   const hookTypeOpts   = ['All Types', ...(options?.hook_types ?? [])]
-  const offerOpts      = ['All Offers', ...(options?.offer_types ?? [])]
   const competitorOpts = options?.competitors ?? []
 
   return (
@@ -368,18 +367,6 @@ function FilterBar({ filters, onChange, onApply, onClear, options }) {
           className="h-9 rounded-btn border border-border-default bg-white px-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           {hookTypeOpts.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
-      </div>
-
-      {/* Offer Type */}
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-text-secondary">Offer Type</label>
-        <select
-          value={filters.offerType}
-          onChange={(e) => onChange('offerType', e.target.value)}
-          className="h-9 rounded-btn border border-border-default bg-white px-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          {offerOpts.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       </div>
 
@@ -749,12 +736,6 @@ function HookDetailDrawer({ hook, onClose }) {
 
                 {/* Meta */}
                 <div className="space-y-2">
-                  {hook.offer_type && (
-                    <div className="flex items-center gap-3">
-                      <span className="w-28 flex-shrink-0 text-xs text-text-tertiary">Offer Type</span>
-                      <Badge color="gray">{hook.offer_type}</Badge>
-                    </div>
-                  )}
                   <div className="flex items-center gap-3">
                     <span className="w-28 flex-shrink-0 text-xs text-text-tertiary">First Seen</span>
                     <span className="text-xs font-medium text-text-primary">{hook.first_seen}</span>
@@ -844,10 +825,9 @@ function HookDetailDrawer({ hook, onClose }) {
 const DEFAULT_FILTERS = {
   search:     '',
   hookType:   'All Types',
-  offerType:  'All Offers',
   competitor: 'All Competitors',
   confidence: 'All',
-  days:       7,            // from the date-range picker; also drives the trend window
+  days:       null,          // date-range picker; null = All time (no date filter), the default
 }
 
 // Map a confidence bucket to numeric min/max for the backend.
@@ -862,7 +842,6 @@ function buildParams(a) {
   const p = {}
   if (a.search) p.search = a.search
   if (a.hookType && a.hookType !== 'All Types') p.hook_type = a.hookType
-  if (a.offerType && a.offerType !== 'All Offers') p.offer_type = a.offerType
   if (a.competitor && a.competitor !== 'All Competitors') p.competitor_id = a.competitor
   Object.assign(p, CONFIDENCE_RANGE[a.confidence] ?? {})
   if (a.days) {
@@ -943,6 +922,7 @@ export default function HookLibraryPage() {
         rightSlot={
           <div className="flex items-center gap-2">
             <DateRangePicker
+              value={filters.days}
               onChange={(preset) => {
                 const next = { ...filters, days: preset.days }
                 setFilters(next)

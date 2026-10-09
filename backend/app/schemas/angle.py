@@ -2,15 +2,27 @@
 Angle library schemas — aligned with frontend fixture (src/api/_fixtures/angles.js).
 """
 
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel, Field
+
+
+# ---------- Filter options ----------
+
+class FilterCompetitor(BaseModel):
+    id: str
+    name: str
+
+
+class AngleFilterOptions(BaseModel):
+    competitors: List[FilterCompetitor] = Field(default_factory=list)
+    angles: List[str] = Field(default_factory=list)
 
 
 # ---------- Summary ----------
 
 class TopAnglePerformer(BaseModel):
     name: str
-    avg_score: float
+    avg_score: float   # average days running (longevity), not AI confidence
 
 
 class TrendingAngle(BaseModel):
@@ -38,7 +50,8 @@ class AngleTypeDistItem(BaseModel):
 
 class AnglePerformanceItem(BaseModel):
     name: str
-    avg_score: float
+    avg_days: float          # average ads.days_running for this angle
+    ads: int = 0             # number of ads behind the bar (for the tooltip)
     color: str
 
 
@@ -68,10 +81,12 @@ class AngleRow(BaseModel):
     description: Optional[str] = None
     mentions: int = 0
     avg_confidence: float = 0.0
-    trending: float = 0.0
+    avg_days_running: float = 0.0
+    # Percent change (float), "New" when there's no earlier period, or null when
+    # there isn't enough data. Never a made-up number.
+    trending: Union[float, str, None] = None
     competitors: List[AngleCompetitorRef] = Field(default_factory=list)
     extra_competitors: int = 0
     example_ads: List[str] = Field(default_factory=list)
     first_seen: Optional[str] = None
     related_hooks: List[str] = Field(default_factory=list)
-    offer_type: Optional[str] = None
