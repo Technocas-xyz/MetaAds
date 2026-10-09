@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, ExternalLink, Play, Clock, TrendingUp, Users, Zap, PlayCircle, Plus, Brain, Loader2 } from 'lucide-react'
+import { Search, ExternalLink, Play, Clock, TrendingUp, Users, Zap, PlayCircle, Plus, Brain, Loader2, Pause, Square } from 'lucide-react'
 import PageHeader from '../../components/ui/PageHeader'
 import KPICard from '../../components/ui/KPICard'
 import Badge from '../../components/ui/Badge'
@@ -9,7 +9,7 @@ import ProgressBar from '../../components/ui/ProgressBar'
 import AddCompetitorModal from '../competitors/components/AddCompetitorModal'
 import ScheduleStatusBar from './components/ScheduleStatusBar'
 import { useScraperCompetitors, useTriggerScrape, useTriggerScrapeAll, useTriggerAnalyzeAll } from '../../hooks/queries/useScraper'
-import { getScrapeAllStatus, getAnalyzeAllStatus } from '../../api/scraper'
+import { getScrapeAllStatus, getAnalyzeAllStatus, pauseAnalyzeAll, resumeAnalyzeAll, stopAnalyzeAll } from '../../api/scraper'
 import toast from 'react-hot-toast'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -24,6 +24,7 @@ export default function ScraperCompetitorsPage() {
   const [scrapeAllProgress, setScrapeAllProgress] = useState(null)
   const [analyzeAllRunning, setAnalyzeAllRunning] = useState(false)
   const [analyzeAllProgress, setAnalyzeAllProgress] = useState(null)
+  const [analyzeAllPaused, setAnalyzeAllPaused] = useState(false)
 
   const { data: competitors = [], isLoading, refetch } = useScraperCompetitors()
   const triggerMutation = useTriggerScrape()
@@ -63,8 +64,10 @@ export default function ScraperCompetitorsPage() {
         if (status.running) {
           setAnalyzeAllRunning(true)
           setAnalyzeAllProgress(status.progress)
+          setAnalyzeAllPaused(status.job?.state === 'paused')
         } else {
           setAnalyzeAllRunning(false)
+          setAnalyzeAllPaused(false)
           if (status.job?.message) {
             // Stopped early, e.g. every AI provider is out of credits.
             toast.error(status.job.message, { duration: 10000 })
@@ -100,6 +103,7 @@ export default function ScraperCompetitorsPage() {
         if (analyzeStatus.running) {
           setAnalyzeAllRunning(true)
           setAnalyzeAllProgress(analyzeStatus.progress)
+          setAnalyzeAllPaused(analyzeStatus.job?.state === 'paused')
           analyzeInterval = pollAnalyzeAll()
         }
       } catch {}
@@ -270,9 +274,64 @@ export default function ScraperCompetitorsPage() {
       )}
       {analyzeAllRunning && analyzeAllProgress && (
         <div className="rounded-card border border-purple-200 bg-purple-50/30 p-4 shadow-card">
-          <div className="flex items-center gap-2 mb-2">
-            <Loader2 size={14} className="animate-spin text-purple-600" />
-            <span className="text-xs font-semibold text-purple-700">Analyzing all pending ads...</span>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              {analyzeAllPaused ? (
+                <Pause size={14} className="text-purple-600" />
+              ) : (
+                <Loader2 size={14} className="animate-spin text-purple-600" />
+              )}
+              <span className="text-xs font-semibold text-purple-700">
+                {analyzeAllPaused ? 'Analysis paused' : 'Analyzing all pending ads...'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="xs"
+                icon={analyzeAllPaused ? Play : Pause}
+                onClick={async () => {
+                  if (analyzeAllPaused) {
+                    setAnalyzeAllPaused(false)
+                    try {
+                      await resumeAnalyzeAll()
+                      toast.success('Analysis resumed')
+                    } catch {
+                      setAnalyzeAllPaused(true)
+                      toast.error('Failed to resume analysis')
+                    }
+                  } else {
+                    setAnalyzeAllPaused(true)
+                    try {
+                      await pauseAnalyzeAll()
+                      toast('Analysis paused', { icon: '⏸️' })
+                    } catch {
+                      setAnalyzeAllPaused(false)
+                      toast.error('Failed to pause analysis')
+                    }
+                  }
+                }}
+              >
+                {analyzeAllPaused ? 'Resume' : 'Pause'}
+              </Button>
+              <Button
+                variant="danger"
+                size="xs"
+                icon={Square}
+                onClick={async () => {
+                  try {
+                    await stopAnalyzeAll()
+                    setAnalyzeAllRunning(false)
+                    setAnalyzeAllPaused(false)
+                    toast('Analysis stopped', { icon: '🛑' })
+                  } catch {
+                    toast.error('Failed to stop analysis')
+                  }
+                }}
+              >
+                Stop
+              </Button>
+            </div>
           </div>
           <ProgressBar
             total={analyzeAllProgress.total}

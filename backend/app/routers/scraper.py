@@ -613,103 +613,11 @@ async def get_batch_status(current_user: User = Depends(get_current_user)):
 
 
 # ─── Analyze All (batch AI analysis) ─────────────────────────────────────────
-
-_analysis_running = False
-_analysis_progress = {"total": 0, "completed": 0, "failed": 0, "skipped": 0}
-
-
-async def _run_batch_analysis():
-    """Analyze all unanalyzed ads sequentially in background."""
-    global _analysis_running, _analysis_progress
-    _analysis_running = True
-    import logging
-    log = logging.getLogger(__name__)
-
-    try:
-        async with AsyncSessionLocal() as db:
-            analyzed_ids_stmt = select(AdAnalysis.ad_id)
-            analyzed_ids = set((await db.execute(analyzed_ids_stmt)).scalars().all())
-            all_ads_stmt = select(Ad.id, Ad.primary_text, Ad.hook).order_by(Ad.created_at.desc())
-            all_ads = (await db.execute(all_ads_stmt)).all()
-
-        to_analyze = []
-        skipped = 0
-        for ad_id, primary_text, hook in all_ads:
-            if ad_id in analyzed_ids:
-                continue
-            if not primary_text and not hook:
-                skipped += 1
-                continue
-            to_analyze.append(ad_id)
-
-        total = len(to_analyze)
-        _analysis_progress = {"total": total, "completed": 0, "failed": 0, "skipped": skipped}
-        analyze_all_job.start(total)
-        analyze_all_job.skipped = skipped
-
-        log.info(f"[analyze-all] Starting batch analysis: {total} ads to analyze")
-
-        BATCH_SIZE = 5
-        DELAY_BETWEEN = 2  # seconds between each analysis (AI rate limit)
-        DELAY_BETWEEN_BATCHES = 10  # extra pause every BATCH_SIZE
-        MAX_PROVIDER_WAIT = 20 * 60  # wait out AI limits shorter than this
-        pending_retry = []           # ads put back while providers were busy
-
-        def queue():
-            for item in to_analyze:
-                yield item
-            while pending_retry:
-                yield pending_retry.pop(0)
-
-        for i, ad_id in enumerate(queue()):
-            # Check pause/stop before each ad
-            if not await analyze_all_job.should_continue():
-                break
-
-            try:
-                async with AsyncSessionLocal() as db:
-                    await run_analysis(str(ad_id), db)
-                _analysis_progress["completed"] += 1
-                analyze_all_job.completed += 1
-
-                if (i + 1) % 10 == 0:
-                    log.info(f"[analyze-all] Progress: {analyze_all_job.completed}/{total}")
-
-            except AIProvidersExhausted as e:
-                # Every provider is busy. Short waits (per-minute limits) are
-                # sat out and the ad retried later; if nothing comes back soon
-                # (no credits, daily caps) stop instead of failing every ad.
-                if e.retry_in <= MAX_PROVIDER_WAIT:
-                    log.info(f"[analyze-all] All AI providers busy; waiting {int(e.retry_in)}s")
-                    waited = 0
-                    while waited < e.retry_in + 5 and await analyze_all_job.should_continue():
-                        await _asyncio.sleep(15)
-                        waited += 15
-                    pending_retry.append(ad_id)
-                    continue
-                analyze_all_job.message = str(e)[:300]
-                analyze_all_job.stop()
-                log.warning(f"[analyze-all] Stopped at {i}/{total}: {e}")
-                break
-            except Exception as e:
-                _analysis_progress["failed"] += 1
-                analyze_all_job.failed += 1
-                if analyze_all_job.failed <= 5:
-                    log.warning(f"[analyze-all] Failed ad {ad_id}: {e}")
-
-            await _asyncio.sleep(DELAY_BETWEEN)
-            if (i + 1) % BATCH_SIZE == 0:
-                await _asyncio.sleep(DELAY_BETWEEN_BATCHES)
-
-        if analyze_all_job.state.value == "running":
-            analyze_all_job.complete()
-            log.info(f"[analyze-all] Done: {analyze_all_job.completed} analyzed, {analyze_all_job.failed} failed")
-
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"[analyze-all] Batch crashed: {e}")
-    finally:
-        _analysis_running = False
+# The batch loop and its state live in app.services.analysis_queue so the same
+# job can be auto-started after a scrape and by the scheduler, not only by this
+# endpoint. The endpoints below keep their original behaviour.
+from app.services import analysis_queue
+from app.services.analysis_queue import _run_batch_analysis
 
 
 @router.post("/analyze-all", status_code=202)
@@ -726,6 +634,8 @@ async def trigger_analyze_all(
         total_analyzed = (await db.execute(select(func.count(AdAnalysis.id)))).scalar() or 0
     pending = total_ads - total_analyzed
 
+    # A manual click clears any earlier Stop so auto-start can resume later too.
+    analysis_queue.note_user_started()
     analyze_all_job.reset()
     _asyncio.create_task(_run_batch_analysis())
 
@@ -751,6 +661,8 @@ async def resume_analyze_all(current_user: User = Depends(get_current_user)):
 @router.post("/analyze-all/stop", status_code=200)
 async def stop_analyze_all(current_user: User = Depends(get_current_user)):
     analyze_all_job.stop()
+    # Remember the user stopped it so automatic checks don't restart it.
+    analysis_queue.note_user_stopped()
     return {"status": "stopped", "job": analyze_all_job.to_dict()}
 
 
@@ -763,7 +675,8 @@ async def get_analysis_status(current_user: User = Depends(get_current_user)):
 
     return {
         "running": analyze_all_job.is_active,
-        "progress": _analysis_progress,
+        # Read live from the module: _run_batch_analysis rebinds this dict.
+        "progress": analysis_queue._analysis_progress,
         "job": analyze_all_job.to_dict(),
         "totals": {
             "total_ads": total_ads,
