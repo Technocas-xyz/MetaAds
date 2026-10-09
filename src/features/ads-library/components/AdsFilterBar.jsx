@@ -5,6 +5,11 @@ import { HOOK_TYPES, ANGLES, OFFER_TYPES } from '../../../lib/constants'
 import { cn } from '../../../lib/utils'
 
 const CONFIDENCE = ['High', 'Medium', 'Low']
+const ANALYSIS_STATUS = [
+  { value: 'analyzed', label: 'Analyzed' },
+  { value: 'pending',  label: 'Pending'  },
+  { value: 'failed',   label: 'Failed'   },
+]
 
 function NativeSelect({ value, onChange, children, placeholder }) {
   return (
@@ -35,7 +40,8 @@ export default function AdsFilterBar({
   competitors = [],
 }) {
   const hasFilters = !!filters.competitor || !!filters.hook_type ||
-    !!filters.angle || !!filters.offer || !!filters.confidence || !!filters.format
+    !!filters.angle || !!filters.offer || !!filters.confidence || !!filters.format ||
+    !!filters.analysis_status
 
   return (
     <div className="sticky top-0 z-10 -mx-6 px-6 lg:-mx-8 lg:px-8">
@@ -111,6 +117,15 @@ export default function AdsFilterBar({
           placeholder="Confidence"
         >
           {CONFIDENCE.map((c) => <option key={c} value={c}>{c}</option>)}
+        </NativeSelect>
+
+        {/* Analysis status */}
+        <NativeSelect
+          value={filters.analysis_status}
+          onChange={(v) => onFilterChange('analysis_status', v)}
+          placeholder="Analysis"
+        >
+          {ANALYSIS_STATUS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
         </NativeSelect>
 
         {/* Format */}

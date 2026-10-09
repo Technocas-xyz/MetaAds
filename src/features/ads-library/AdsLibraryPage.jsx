@@ -26,6 +26,7 @@ function paramsToFilters(sp) {
     offer:      sp.get('offer')      ?? '',
     confidence: sp.get('confidence') ?? '',
     format:     sp.get('format')     ?? '',
+    analysis_status: sp.get('analysis_status') ?? '',
     dateRange:  sp.get('dateRange')  ?? '',
     search:     sp.get('search')     ?? '',
   }
@@ -40,7 +41,10 @@ function applyFilters(ads, filters) {
     if (filters.hook_type  && ad.hook_type  !== filters.hook_type)  return false
     if (filters.angle      && ad.angle      !== filters.angle)      return false
     if (filters.offer      && ad.offer_type !== filters.offer)      return false
+    if (filters.analysis_status && ad.analysis_status !== filters.analysis_status) return false
     if (filters.confidence) {
+      // Only analyzed ads have a confidence level; unanalyzed never count as Low.
+      if (ad.analysis_status !== 'analyzed') return false
       const level = ad.confidence_score >= 70 ? 'High' : ad.confidence_score >= 40 ? 'Medium' : 'Low'
       if (level !== filters.confidence) return false
     }
@@ -88,7 +92,7 @@ export default function AdsLibraryPage() {
       const next = new URLSearchParams()
       // preserve only non-filter params
       for (const [k, v] of prev) {
-        if (!['competitor', 'hook_type', 'angle', 'offer', 'confidence', 'format', 'dateRange', 'search', 'page'].includes(k)) {
+        if (!['competitor', 'hook_type', 'angle', 'offer', 'confidence', 'format', 'analysis_status', 'dateRange', 'search', 'page'].includes(k)) {
           next.set(k, v)
         }
       }
@@ -198,7 +202,14 @@ export default function AdsLibraryPage() {
       />
 
       {/* KPIs */}
-      <AdsKPIs summary={summary} isLoading={summaryLoading} />
+      <AdsKPIs
+        summary={summary}
+        isLoading={summaryLoading}
+        activeStatus={filters.analysis_status}
+        onStatusClick={(status) =>
+          setFilter('analysis_status', filters.analysis_status === status ? '' : status)
+        }
+      />
 
       {/* Filter bar */}
       <AdsFilterBar

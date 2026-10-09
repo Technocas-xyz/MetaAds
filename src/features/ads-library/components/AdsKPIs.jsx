@@ -16,7 +16,7 @@ function Skeleton() {
   )
 }
 
-export default function AdsKPIs({ summary, isLoading }) {
+export default function AdsKPIs({ summary, isLoading, activeStatus, onStatusClick }) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -43,6 +43,8 @@ export default function AdsKPIs({ summary, isLoading }) {
       iconBg:    'bg-success-50',
       iconColor: 'text-success-600',
       note:      `(${s.analyzed_pct ?? 0}%) With AI analysis`,
+      onClick:   onStatusClick ? () => onStatusClick('analyzed') : undefined,
+      active:    activeStatus === 'analyzed',
     },
     {
       title:     'Pending Analysis',
@@ -51,6 +53,8 @@ export default function AdsKPIs({ summary, isLoading }) {
       iconBg:    'bg-warning-50',
       iconColor: 'text-warning-600',
       note:      `(${s.pending_pct ?? 0}%) Awaiting analysis`,
+      onClick:   onStatusClick ? () => onStatusClick('pending') : undefined,
+      active:    activeStatus === 'pending',
     },
     {
       title:     'Low Confidence',

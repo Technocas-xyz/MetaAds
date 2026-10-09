@@ -25,6 +25,26 @@ const PLATFORM_DOT = {
 
 const TIER_COLOR = { 1: 'red', 2: 'amber', 3: 'slate' }
 
+// Confidence column: analyzed ads show their confidence; unanalyzed ads show a
+// neutral Pending/Failed badge instead of a misleading "Low 0%".
+function AnalysisStatusBadge({ ad }) {
+  if (ad.analysis_status === 'analyzed') {
+    return <ConfidenceBadge score={ad.confidence_score} />
+  }
+  if (ad.analysis_status === 'failed') {
+    return (
+      <span className="inline-flex items-center rounded-full bg-danger-50 px-2.5 py-0.5 text-xs font-medium text-danger-700 ring-1 ring-danger-200">
+        Failed
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-text-secondary ring-1 ring-gray-200">
+      Pending
+    </span>
+  )
+}
+
 // ── Skeletons ──────────────────────────────────────────────────────────────────
 function RowSkeleton() {
   return (
@@ -215,7 +235,7 @@ function TableRow({ ad, selected, onSelect, onPreview, expandedId, onToggleExpan
 
         {/* Confidence */}
         <td className="px-4 py-2.5">
-          <ConfidenceBadge score={ad.confidence_score} />
+          <AnalysisStatusBadge ad={ad} />
         </td>
 
         {/* Variants — hidden on md */}
@@ -325,7 +345,7 @@ function MobileCard({ ad, selected, onSelect, onPreview }) {
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <HookTypeBadge type={ad.hook_type} />
-            <ConfidenceBadge score={ad.confidence_score} />
+            <AnalysisStatusBadge ad={ad} />
             {ad.offer_type && <Badge color="indigo">{ad.offer_type}</Badge>}
             {ad.is_video ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-200">

@@ -13,6 +13,29 @@ from app.models.user import User
 from app.models.ad import Ad
 from app.models.ad_analysis import AdAnalysis
 from app.models.competitor import Competitor
+from app.models.review_queue import ReviewQueue
+
+
+# A failed analysis is recorded by analysis_service._save_failed_analysis as a
+# review_queue row with this label. Used to tell "pending" apart from "failed".
+FAILED_ANALYSIS_LABEL = "Analysis Failed"
+
+
+def _failed_ad_exists():
+    """Correlated EXISTS: the ad has a 'Analysis Failed' review-queue row."""
+    return (
+        select(ReviewQueue.id)
+        .where(
+            ReviewQueue.ad_id == Ad.id,
+            ReviewQueue.reason_label == FAILED_ANALYSIS_LABEL,
+        )
+        .exists()
+    )
+
+
+def _analyzed_exists():
+    """Correlated EXISTS: the ad has an ad_analyses row."""
+    return select(AdAnalysis.id).where(AdAnalysis.ad_id == Ad.id).exists()
 from app.schemas.ad import (
     AdCreate,
     AdUpdate,
@@ -30,8 +53,12 @@ router = APIRouter(prefix="/competitor-ads", tags=["ads"])
 
 # ---------- Helpers ----------
 
-def _ad_to_response(ad: Ad) -> AdResponse:
-    """Convert SQLAlchemy Ad (with relationships loaded) into AdResponse."""
+def _ad_to_response(ad: Ad, failed: bool = False) -> AdResponse:
+    """Convert SQLAlchemy Ad (with relationships loaded) into AdResponse.
+
+    `failed` marks ads that have a failed analysis attempt (recorded in the
+    review queue) but no successful ad_analyses row.
+    """
     from app.schemas.ad import AIInsights, InsightField, CompetitorRef
 
     # Build ai_insights nested shape if analysis exists
@@ -83,10 +110,19 @@ def _ad_to_response(ad: Ad) -> AdResponse:
     days = max(0, (now - first_seen).days)
     date_str = first_seen.strftime("%b %d, %Y")
 
+    # Analysis status: analyzed > failed > pending.
+    if ad.analysis is not None:
+        analysis_status = "analyzed"
+    elif failed:
+        analysis_status = "failed"
+    else:
+        analysis_status = "pending"
+
     return AdResponse(
         id=ad.id,
         competitor=CompetitorRef.model_validate(ad.competitor),
         platform=ad.platform,
+        analysis_status=analysis_status,
         hook_type=top_hook_type,
         hook_text=top_hook_text,
         angle=top_angle,
@@ -150,9 +186,17 @@ async def get_ads_summary(
     analyzed_stmt = select(func.count(AdAnalysis.id))
     analyzed = (await db.execute(analyzed_stmt)).scalar() or 0
 
-    pending = total - analyzed
+    # Failed = ads with NO analysis but a "Analysis Failed" review-queue row.
+    failed_stmt = select(func.count(func.distinct(Ad.id))).where(
+        _failed_ad_exists(), ~_analyzed_exists()
+    )
+    failed = (await db.execute(failed_stmt)).scalar() or 0
 
-    # Low confidence = analyses below threshold (default 65)
+    # Pending = everything else (no analysis, no failed attempt).
+    pending = total - analyzed - failed
+
+    # Low confidence = analyses below threshold (default 65). This counts only
+    # ads that HAVE an analysis row, so unanalyzed/pending ads are never counted.
     low_conf_stmt = select(func.count(AdAnalysis.id)).where(
         AdAnalysis.confidence_score < 65
     )
@@ -172,6 +216,8 @@ async def get_ads_summary(
         analyzed_pct=pct(analyzed, total),
         pending=pending,
         pending_pct=pct(pending, total),
+        failed=failed,
+        failed_pct=pct(failed, total),
         low_confidence=low_confidence,
         low_conf_pct=pct(low_confidence, total),
         this_week=this_week,
@@ -192,6 +238,7 @@ async def list_ads(
     offer: Optional[str] = Query(None),
     confidence: Optional[str] = Query(None),
     format: Optional[str] = Query(None),
+    analysis_status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     sort: str = Query("-captured_at"),
     db: AsyncSession = Depends(get_db),
@@ -254,6 +301,20 @@ async def list_ads(
         elif format.lower() == "image":
             stmt = stmt.where(Ad.is_video == False)
 
+    # Analysis-status filter — EXISTS subqueries so it composes with every other
+    # filter and keeps pagination/counts correct.
+    #   analyzed : has an ad_analyses row
+    #   failed   : no ad_analyses row but a "Analysis Failed" review-queue row
+    #   pending  : no ad_analyses row and no failed attempt
+    if analysis_status:
+        status_val = analysis_status.lower()
+        if status_val == "analyzed":
+            stmt = stmt.where(_analyzed_exists())
+        elif status_val == "failed":
+            stmt = stmt.where(~_analyzed_exists(), _failed_ad_exists())
+        elif status_val == "pending":
+            stmt = stmt.where(~_analyzed_exists(), ~_failed_ad_exists())
+
     # Count total before pagination
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total = (await db.execute(count_stmt)).scalar() or 0
@@ -271,10 +332,23 @@ async def list_ads(
 
     ads = (await db.execute(stmt)).scalars().unique().all()
 
+    # Which of the ads on this page have a failed analysis attempt (and no
+    # successful analysis)? One grouped query for the whole page.
+    page_ids = [ad.id for ad in ads if ad.analysis is None]
+    failed_ids: set = set()
+    if page_ids:
+        failed_rows = (await db.execute(
+            select(ReviewQueue.ad_id).where(
+                ReviewQueue.ad_id.in_(page_ids),
+                ReviewQueue.reason_label == FAILED_ANALYSIS_LABEL,
+            ).distinct()
+        )).scalars().all()
+        failed_ids = set(failed_rows)
+
     total_pages = ceil(total / per_page) if per_page else 0
 
     return AdListResponse(
-        data=[_ad_to_response(ad) for ad in ads],
+        data=[_ad_to_response(ad, failed=ad.id in failed_ids) for ad in ads],
         meta=PaginationMeta(
             total=total,
             page=page,
@@ -292,7 +366,15 @@ async def get_ad(
 ):
     """Get a single ad with competitor + AI analysis."""
     ad = await _get_ad_or_404(db, ad_id)
-    return _ad_to_response(ad)
+    failed = False
+    if ad.analysis is None:
+        failed = (await db.execute(
+            select(ReviewQueue.id).where(
+                ReviewQueue.ad_id == ad_id,
+                ReviewQueue.reason_label == FAILED_ANALYSIS_LABEL,
+            ).limit(1)
+        )).scalar_one_or_none() is not None
+    return _ad_to_response(ad, failed=failed)
 
 
 @router.post("", response_model=AdResponse, status_code=status.HTTP_201_CREATED)
