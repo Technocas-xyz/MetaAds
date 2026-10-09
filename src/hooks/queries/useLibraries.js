@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { listHooks, getHooksSummary, getHooksTypeDist, getHooksPerf, getHooksTrend, getHooksList } from '../../api/hooks'
+import { listHooks, getHooksSummary, getHooksTypeDist, getHooksPerf, getHooksTrend, getHooksList, getHooksFilterOptions } from '../../api/hooks'
 import { listAngles, getAnglesSummary, getAnglesTypeDist, getAnglesPerf, getAnglesTrend, getAnglesList } from '../../api/angles'
 import { listOffers, getOffersSummary, getOffersTypeDist, getOffersPerf, getOffersTrend, getOffersList } from '../../api/offers'
 
@@ -32,18 +32,20 @@ export function useOfferLibrary(params) {
 
 // ── Hook Library detail queries ───────────────────────────────────────────────
 export const hooksQueryKeys = {
-  summary:  ()  => ['hooks', 'summary'],
-  typeDist: ()  => ['hooks', 'type-dist'],
-  perf:     ()  => ['hooks', 'perf'],
-  trend:    (p) => ['hooks', 'trend', p ?? {}],
-  list:     (p) => ['hooks', 'list',  p ?? {}],
+  options:  ()  => ['hooks', 'filter-options'],
+  summary:  (p) => ['hooks', 'summary',   p ?? {}],
+  typeDist: (p) => ['hooks', 'type-dist', p ?? {}],
+  perf:     (p) => ['hooks', 'perf',      p ?? {}],
+  trend:    (p) => ['hooks', 'trend',     p ?? {}],
+  list:     (p) => ['hooks', 'list',      p ?? {}],
 }
 
-export const useHooksSummary  = ()       => useQuery({ queryKey: hooksQueryKeys.summary(),      queryFn: getHooksSummary })
-export const useHooksTypeDist = ()       => useQuery({ queryKey: hooksQueryKeys.typeDist(),     queryFn: getHooksTypeDist })
-export const useHooksPerf     = ()       => useQuery({ queryKey: hooksQueryKeys.perf(),         queryFn: getHooksPerf })
-export const useHooksTrend    = (params) => useQuery({ queryKey: hooksQueryKeys.trend(params),  queryFn: () => getHooksTrend(params) })
-export const useHooksTable    = (params) => useQuery({ queryKey: hooksQueryKeys.list(params),   queryFn: () => getHooksList(params) })
+export const useHooksFilterOptions = ()  => useQuery({ queryKey: hooksQueryKeys.options(),       queryFn: getHooksFilterOptions })
+export const useHooksSummary  = (params) => useQuery({ queryKey: hooksQueryKeys.summary(params),  queryFn: () => getHooksSummary(params) })
+export const useHooksTypeDist = (params) => useQuery({ queryKey: hooksQueryKeys.typeDist(params), queryFn: () => getHooksTypeDist(params) })
+export const useHooksPerf     = (params) => useQuery({ queryKey: hooksQueryKeys.perf(params),     queryFn: () => getHooksPerf(params) })
+export const useHooksTrend    = (params) => useQuery({ queryKey: hooksQueryKeys.trend(params),    queryFn: () => getHooksTrend(params) })
+export const useHooksTable    = (params) => useQuery({ queryKey: hooksQueryKeys.list(params),     queryFn: () => getHooksList(params) })
 
 // ── Angle Library detail queries ──────────────────────────────────────────────
 export const anglesQueryKeys = {

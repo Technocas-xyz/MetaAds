@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useMemo, useEffect } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Download, Search, Filter, TrendingUp, Hash,
   MessageSquare, Award, BarChart2, Eye,
@@ -26,8 +26,33 @@ import {
   useHooksPerf,
   useHooksTrend,
   useHooksTable,
+  useHooksFilterOptions,
 } from '../../hooks/queries/useLibraries'
 import { cn } from '../../lib/utils'
+
+// Deterministic avatar color from any id string (works for UUIDs, unlike
+// Number(id) which is NaN for UUIDs and left avatars invisible).
+function avatarColor(key) {
+  const s = String(key ?? '')
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return AVATAR_BG[h % AVATAR_BG.length]
+}
+
+// Trending can be a number (percent), the string "New", or null (dash).
+function TrendingValue({ value, className }) {
+  if (value === 'New') {
+    return <span className={cn('inline-flex items-center gap-0.5 text-xs font-semibold text-primary-600', className)}>New</span>
+  }
+  if (value === null || value === undefined) {
+    return <span className={cn('text-xs font-semibold text-text-tertiary', className)}>—</span>
+  }
+  return (
+    <span className={cn('inline-flex items-center gap-0.5 text-xs font-semibold', value >= 0 ? 'text-success-600' : 'text-danger-600', className)}>
+      {value >= 0 ? '↑' : '↓'} {Math.abs(value)}%
+    </span>
+  )
+}
 
 // First, last and the pages around the current one — never the whole list.
 function pageWindow(page, totalPages) {
@@ -177,7 +202,7 @@ function HookTypeDonutCard({ data, isLoading }) {
   )
 }
 
-// ── Bar — Hook Performance (Avg Confidence) ───────────────────────────────────
+// ── Bar — Hook Longevity (Avg Days Running) ───────────────────────────────────
 function PerfBarTip({ active, payload }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
@@ -185,7 +210,10 @@ function PerfBarTip({ active, payload }) {
     <div className="rounded-lg border border-border-default bg-white px-3 py-2 shadow-lg">
       <p className="text-xs font-medium text-text-primary">{d.type}</p>
       <p className="mt-0.5 text-sm font-bold" style={{ color: d.color }}>
-        Avg. {d.avg_score}%
+        Avg. {d.avg_days} days
+      </p>
+      <p className="mt-0.5 text-[11px] text-text-secondary">
+        {d.ads} ad{d.ads !== 1 ? 's' : ''}
       </p>
     </div>
   )
@@ -193,7 +221,7 @@ function PerfBarTip({ active, payload }) {
 
 function HookPerfBarCard({ data, isLoading }) {
   return (
-    <Card title="Hook Performance (Avg. Confidence Score)">
+    <Card title="Hook Longevity (Avg. Days Running)">
       {isLoading ? (
         <div className="h-52 animate-pulse rounded-lg bg-gray-100" />
       ) : (
@@ -212,17 +240,15 @@ function HookPerfBarCard({ data, isLoading }) {
                 tick={{ fontSize: 10, fill: '#94A3B8' }}
                 axisLine={false}
                 tickLine={false}
-                domain={[0, 100]}
-                tickFormatter={(v) => `${v}%`}
                 width={32}
               />
               <RechartsTip content={<PerfBarTip />} cursor={{ fill: 'transparent' }} />
-              <Bar dataKey="avg_score" radius={[4, 4, 0, 0]} maxBarSize={36}>
+              <Bar dataKey="avg_days" radius={[4, 4, 0, 0]} maxBarSize={36}>
                 {data.map((d, i) => <Cell key={i} fill={d.color} />)}
                 <LabelList
-                  dataKey="avg_score"
+                  dataKey="avg_days"
                   position="top"
-                  formatter={(v) => `${v}%`}
+                  formatter={(v) => `${v}d`}
                   style={{ fontSize: 9, fontWeight: 600, fill: '#64748B' }}
                 />
               </Bar>
@@ -308,11 +334,15 @@ function HookTrendLineCard({ data, isLoading }) {
 }
 
 // ── Filter Bar ────────────────────────────────────────────────────────────────
-const OFFER_OPTIONS      = ['All Offers', 'Discount 40%', 'Free Shipping', 'Bundle Deal', 'BOGO', 'Limited Time']
-const COMPETITOR_OPTIONS = ['All Competitors', 'PrintMagic Pro', 'DTFworld', 'PrintZone', 'ThreadBeast', 'VividPrints']
+// Confidence buckets map to numeric min/max ranges applied server-side.
 const CONFIDENCE_OPTIONS = ['All', 'High (80%+)', 'Medium (50–79%)', 'Low (<50%)']
 
-function FilterBar({ filters, onChange, onApply, onClear }) {
+function FilterBar({ filters, onChange, onApply, onClear, options }) {
+  // Dropdown options come entirely from the backend's analyzed ads.
+  const hookTypeOpts   = ['All Types', ...(options?.hook_types ?? [])]
+  const offerOpts      = ['All Offers', ...(options?.offer_types ?? [])]
+  const competitorOpts = options?.competitors ?? []
+
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-card border border-border-default bg-white p-4 shadow-card">
       <div className="relative min-w-[180px] flex-1">
@@ -329,23 +359,54 @@ function FilterBar({ filters, onChange, onApply, onClear }) {
         />
       </div>
 
-      {[
-        { key: 'hookType',   label: 'Hook Type',   options: ['All Types', ...ALL_TYPES] },
-        { key: 'offerType',  label: 'Offer Type',  options: OFFER_OPTIONS },
-        { key: 'competitor', label: 'Competitor',  options: COMPETITOR_OPTIONS },
-        { key: 'confidence', label: 'Confidence',  options: CONFIDENCE_OPTIONS },
-      ].map(({ key, label, options }) => (
-        <div key={key} className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-text-secondary">{label}</label>
-          <select
-            value={filters[key]}
-            onChange={(e) => onChange(key, e.target.value)}
-            className="h-9 rounded-btn border border-border-default bg-white px-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            {options.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </div>
-      ))}
+      {/* Hook Type */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-text-secondary">Hook Type</label>
+        <select
+          value={filters.hookType}
+          onChange={(e) => onChange('hookType', e.target.value)}
+          className="h-9 rounded-btn border border-border-default bg-white px-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          {hookTypeOpts.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
+
+      {/* Offer Type */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-text-secondary">Offer Type</label>
+        <select
+          value={filters.offerType}
+          onChange={(e) => onChange('offerType', e.target.value)}
+          className="h-9 rounded-btn border border-border-default bg-white px-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          {offerOpts.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
+
+      {/* Competitor — value is the competitor id, label is the name */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-text-secondary">Competitor</label>
+        <select
+          value={filters.competitor}
+          onChange={(e) => onChange('competitor', e.target.value)}
+          className="h-9 rounded-btn border border-border-default bg-white px-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          <option value="All Competitors">All Competitors</option>
+          {competitorOpts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </div>
+
+      {/* Confidence */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-text-secondary">Confidence</label>
+        <select
+          value={filters.confidence}
+          onChange={(e) => onChange('confidence', e.target.value)}
+          className="h-9 rounded-btn border border-border-default bg-white px-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          {CONFIDENCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
 
       <div className="flex gap-2">
         <Button variant="outline" size="sm" icon={X} onClick={onClear}>Clear</Button>
@@ -375,7 +436,7 @@ function CompetitorAvatars({ competitors, extra }) {
           title={c.name}
           className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-white"
           style={{
-            backgroundColor: AVATAR_BG[Number(c.id) % AVATAR_BG.length],
+            backgroundColor: avatarColor(c.id),
             zIndex: competitors.length - i,
           }}
         >
@@ -475,14 +536,7 @@ function HooksTable({ rows, total, page, onPageChange, onSelectHook }) {
 
                 {/* Trending */}
                 <td className="px-4 py-3 text-right">
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-0.5 text-xs font-semibold',
-                      row.trending >= 0 ? 'text-success-600' : 'text-danger-600',
-                    )}
-                  >
-                    {row.trending >= 0 ? '↑' : '↓'} {Math.abs(row.trending)}%
-                  </span>
+                  <TrendingValue value={row.trending} />
                 </td>
 
                 {/* Example Ads */}
@@ -557,9 +611,7 @@ function HooksTable({ rows, total, page, onPageChange, onSelectHook }) {
             <div className="flex flex-wrap items-center gap-3 text-xs">
               <span className="text-text-secondary">{row.mentions.toLocaleString()} mentions</span>
               <ConfScore score={row.avg_confidence} />
-              <span className={cn('font-semibold', row.trending >= 0 ? 'text-success-600' : 'text-danger-600')}>
-                {row.trending >= 0 ? '↑' : '↓'} {Math.abs(row.trending)}%
-              </span>
+              <TrendingValue value={row.trending} />
             </div>
             <div className="flex gap-1">
               {row.example_ads.map((url, i) => (
@@ -667,14 +719,20 @@ function HookDetailDrawer({ hook, onClose }) {
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { label: 'Mentions',        value: hook.mentions.toLocaleString(), plain: true },
-                    { label: 'Avg. Confidence', value: `${hook.avg_confidence}%`,      plain: true },
+                    { label: 'Mentions',        value: hook.mentions.toLocaleString() },
+                    { label: 'Avg. Confidence', value: `${hook.avg_confidence}%` },
                     {
                       label: 'Trend',
-                      value: `${hook.trending >= 0 ? '+' : ''}${hook.trending}%`,
-                      color: hook.trending >= 0 ? 'text-success-600' : 'text-danger-600',
+                      value: hook.trending === 'New'
+                        ? 'New'
+                        : (hook.trending === null || hook.trending === undefined)
+                          ? '—'
+                          : `${hook.trending >= 0 ? '+' : ''}${hook.trending}%`,
+                      color: typeof hook.trending === 'number'
+                        ? (hook.trending >= 0 ? 'text-success-600' : 'text-danger-600')
+                        : undefined,
                     },
-                  ].map(({ label, value, plain, color }) => (
+                  ].map(({ label, value, color }) => (
                     <div
                       key={label}
                       className="rounded-lg border border-border-default p-3 text-center"
@@ -733,7 +791,7 @@ function HookDetailDrawer({ hook, onClose }) {
                       >
                         <div
                           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                          style={{ backgroundColor: AVATAR_BG[Number(c.id) % AVATAR_BG.length] }}
+                          style={{ backgroundColor: avatarColor(c.id) }}
                         >
                           {c.initials}
                         </div>
@@ -789,60 +847,86 @@ const DEFAULT_FILTERS = {
   offerType:  'All Offers',
   competitor: 'All Competitors',
   confidence: 'All',
+  days:       7,            // from the date-range picker; also drives the trend window
+}
+
+// Map a confidence bucket to numeric min/max for the backend.
+const CONFIDENCE_RANGE = {
+  'High (80%+)':     { min_confidence: 80 },
+  'Medium (50–79%)': { min_confidence: 50, max_confidence: 79.999 },
+  'Low (<50%)':      { max_confidence: 49.999 },
+}
+
+// Turn the applied filter state into backend query params shared by all endpoints.
+function buildParams(a) {
+  const p = {}
+  if (a.search) p.search = a.search
+  if (a.hookType && a.hookType !== 'All Types') p.hook_type = a.hookType
+  if (a.offerType && a.offerType !== 'All Offers') p.offer_type = a.offerType
+  if (a.competitor && a.competitor !== 'All Competitors') p.competitor_id = a.competitor
+  Object.assign(p, CONFIDENCE_RANGE[a.confidence] ?? {})
+  if (a.days) {
+    const from = new Date()
+    from.setUTCDate(from.getUTCDate() - (Number(a.days) - 1))
+    p.date_from = from.toISOString().slice(0, 10)  // YYYY-MM-DD
+    p.days = Number(a.days)
+  }
+  return p
+}
+
+// Read/write filter state in the URL so a refresh keeps the view.
+function filtersFromSearchParams(sp) {
+  const f = { ...DEFAULT_FILTERS }
+  for (const key of Object.keys(DEFAULT_FILTERS)) {
+    const v = sp.get(key)
+    if (v !== null && v !== '') f[key] = key === 'days' ? Number(v) : v
+  }
+  return f
+}
+
+function searchParamsFromFilters(f) {
+  const out = {}
+  for (const key of Object.keys(DEFAULT_FILTERS)) {
+    if (String(f[key]) !== String(DEFAULT_FILTERS[key])) out[key] = String(f[key])
+  }
+  return out
 }
 
 export default function HookLibraryPage() {
-  const [filters, setFilters]       = useState(DEFAULT_FILTERS)
-  const [applied, setApplied]       = useState(DEFAULT_FILTERS)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [filters, setFilters]       = useState(() => filtersFromSearchParams(searchParams))
+  const [applied, setApplied]       = useState(() => filtersFromSearchParams(searchParams))
   const [page, setPage]             = useState(1)
   const [selectedHook, setSelectedHook] = useState(null)
 
-  // Build server-side query params
-  const queryParams = useMemo(() => {
-    const p = {}
-    if (applied.search) p.search = applied.search
-    if (applied.hookType && applied.hookType !== 'All Types') p.hook_type = applied.hookType
-    return p
-  }, [applied])
+  const { data: options } = useHooksFilterOptions()
 
-  const { data: summary,   isLoading: sumLoading   } = useHooksSummary()
-  const { data: typeDist,  isLoading: distLoading  } = useHooksTypeDist()
-  const { data: perfData,  isLoading: perfLoading  } = useHooksPerf()
-  const { data: trendData, isLoading: trendLoading } = useHooksTrend()
+  // The one param set every endpoint shares — cards, charts and table.
+  const queryParams = useMemo(() => buildParams(applied), [applied])
+
+  const { data: summary,   isLoading: sumLoading   } = useHooksSummary(queryParams)
+  const { data: typeDist,  isLoading: distLoading  } = useHooksTypeDist(queryParams)
+  const { data: perfData,  isLoading: perfLoading  } = useHooksPerf(queryParams)
+  const { data: trendData, isLoading: trendLoading } = useHooksTrend(queryParams)
   const { data: tableData, isLoading: tableLoading } = useHooksTable(queryParams)
 
   const changeFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }))
 
   const applyFilters = () => {
     setApplied(filters)
+    setSearchParams(searchParamsFromFilters(filters), { replace: true })
     setPage(1)
   }
 
   const clearFilters = () => {
     setFilters(DEFAULT_FILTERS)
     setApplied(DEFAULT_FILTERS)
+    setSearchParams({}, { replace: true })
     setPage(1)
   }
 
-  // Additional client-side filtering for fields not supported by backend
-  const filtered = useMemo(() => {
-    if (!tableData) return []
-    return tableData.filter((row) => {
-      if (
-        applied.competitor !== 'All Competitors' &&
-        !row.competitors.some((c) => c.name === applied.competitor)
-      )
-        return false
-      if (applied.confidence === 'High (80%+)' && row.avg_confidence < 80) return false
-      if (
-        applied.confidence === 'Medium (50–79%)' &&
-        (row.avg_confidence < 50 || row.avg_confidence >= 80)
-      )
-        return false
-      if (applied.confidence === 'Low (<50%)' && row.avg_confidence >= 50) return false
-      return true
-    })
-  }, [tableData, applied])
+  // All filtering now happens server-side; the table reflects queryParams directly.
+  const filtered = tableData ?? []
 
   const paginated = useMemo(
     () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
@@ -858,7 +942,15 @@ export default function HookLibraryPage() {
         subtitle="Browse, filter and analyse all AI-extracted hooks across your tracked competitors."
         rightSlot={
           <div className="flex items-center gap-2">
-            <DateRangePicker />
+            <DateRangePicker
+              onChange={(preset) => {
+                const next = { ...filters, days: preset.days }
+                setFilters(next)
+                setApplied(next)
+                setSearchParams(searchParamsFromFilters(next), { replace: true })
+                setPage(1)
+              }}
+            />
             <Button variant="outline" size="sm" icon={Download}>Export</Button>
           </div>
         }
@@ -905,9 +997,9 @@ export default function HookLibraryPage() {
                       {summary?.top_performing_hook?.text ?? '—'}
                     </p>
                     <p className="mt-2 text-xs text-text-secondary">
-                      Avg score:{' '}
+                      Avg. runtime:{' '}
                       <span className="font-semibold text-success-600">
-                        {summary?.top_performing_hook?.avg_score}%
+                        {summary?.top_performing_hook ? `${summary.top_performing_hook.avg_score} days` : '—'}
                       </span>
                     </p>
                   </div>
@@ -954,6 +1046,7 @@ export default function HookLibraryPage() {
       {/* Filter bar */}
       <FilterBar
         filters={filters}
+        options={options}
         onChange={changeFilter}
         onApply={applyFilters}
         onClear={clearFilters}
