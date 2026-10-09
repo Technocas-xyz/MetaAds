@@ -195,6 +195,10 @@ async def scrape_competitor(
                 if existing_ad.removed_at:
                     existing_ad.removed_at = None
                     logger.info(f"[scraper] Ad {library_id} reappeared — un-marking removal")
+                # Once the scraper detects a video (incl. a player-error card), the
+                # ad is a video for good — never downgrade it back to an image.
+                if ad_data.get("is_video"):
+                    existing_ad.is_video = True
                 # Refresh media URLs (Meta CDN URLs expire; re-scrape gets fresh ones)
                 if ad_data.get("ad_creative_url"):
                     existing_ad.media_url = ad_data["ad_creative_url"]
