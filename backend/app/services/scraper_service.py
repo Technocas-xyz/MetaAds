@@ -372,26 +372,16 @@ async def scrape_competitor(
         await db.refresh(run)
 
         # Trigger AI analysis for new ads — DECOUPLED from scrape status.
-        # Analysis failures must NOT mark the scrape as failed.
-        if new_count > 0 and settings.AUTO_ANALYZE:
+        # Hand off to the shared batch job, which analyzes every pending ad
+        # (not just the first 10) and waits out AI rate limits. Wrapped so an
+        # analysis problem can never fail the scrape. Imported here to avoid a
+        # circular import at module load.
+        if settings.AUTO_ANALYZE:
             try:
-                new_ads_stmt = select(Ad).where(
-                    Ad.competitor_id == competitor_id,
-                    Ad.ad_library_id.in_(found_library_ids - set(existing_map.keys())),
-                )
-                new_ads = (await db.execute(new_ads_stmt)).scalars().all()
-                analyzed = 0
-                for ad in new_ads[:10]:
-                    try:
-                        await run_analysis(str(ad.id), db)
-                        analyzed += 1
-                    except Exception as e:
-                        logger.warning(f"[analysis] Failed for ad {ad.id} (non-fatal): {e}")
-                        break  # Stop on first failure (likely rate limit) — rest will be picked up by analyze-all
-                if analyzed > 0:
-                    logger.info(f"[analysis] Analyzed {analyzed}/{len(new_ads[:10])} new ads inline")
+                from app.services.analysis_queue import start_if_pending
+                await start_if_pending("scrape finished")
             except Exception as e:
-                logger.warning(f"[analysis] Inline analysis skipped due to error (non-fatal): {e}")
+                logger.warning(f"[analysis] Auto-start skipped due to error (non-fatal): {e}")
 
         logger.info(
             f"Scrape completed for {competitor.name}: "

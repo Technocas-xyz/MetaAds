@@ -102,9 +102,14 @@ def get_schedule_status() -> dict:
 async def _scheduler_loop():
     """
     Main scheduler loop. Checks every 60 seconds if it's time for the daily run.
+    Also checks every 10 minutes whether unanalyzed ads are waiting and, if so,
+    auto-starts AI analysis — this resumes work after an AI daily-limit reset or
+    a backend restart, without anyone clicking "Analyze All".
     """
     ran_today = False
     last_run_date = None
+    last_analysis_check: Optional[datetime] = None
+    ANALYSIS_CHECK_INTERVAL = timedelta(minutes=10)
 
     while True:
         try:
@@ -133,6 +138,20 @@ async def _scheduler_loop():
 
         except Exception as e:
             logger.error(f"[scheduler] Error in scheduler loop: {e}")
+
+        # Periodic auto-analysis check (every 10 minutes). Wrapped on its own so
+        # an analysis-queue problem can never break the scrape scheduler.
+        try:
+            from app.config import settings
+            if settings.AUTO_ANALYZE and (
+                last_analysis_check is None
+                or datetime.now(timezone.utc) - last_analysis_check >= ANALYSIS_CHECK_INTERVAL
+            ):
+                last_analysis_check = datetime.now(timezone.utc)
+                from app.services.analysis_queue import start_if_pending
+                await start_if_pending("periodic check")
+        except Exception as e:
+            logger.error(f"[scheduler] Auto-analysis check error (non-fatal): {e}")
 
         # Check every 60 seconds
         await asyncio.sleep(60)
