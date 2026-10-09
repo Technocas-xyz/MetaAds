@@ -1,4 +1,5 @@
 import { Layers, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
+import toast from 'react-hot-toast'
 import PageHeader from '../../components/ui/PageHeader'
 import DateRangePicker from '../../components/ui/DateRangePicker'
 import KPICard from '../../components/ui/KPICard'
@@ -126,7 +127,10 @@ export default function DashboardPage() {
       <RecentAdsTable
         ads={ads}
         isLoading={adsLoading}
-        onAnalyze={(id) => analyzeAd(id)}
+        onAnalyze={(id) => analyzeAd(id, {
+          onSuccess: () => toast.success('AI analysis complete'),
+          onError:   () => toast.error('Analysis failed — try again'),
+        })}
       />
     </div>
   )

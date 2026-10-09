@@ -325,7 +325,14 @@ export default function ManualReviewPage() {
   }
 
   const handleRerun = () => {
-    analyzeAd.mutate(id, {
+    // The route param `id` is the review-item id; the analyze endpoint needs the
+    // underlying ad's id, which the review item carries on `ad.id`.
+    const adId = item?.ad?.id
+    if (!adId) {
+      toast.error('Cannot re-run — ad not loaded yet')
+      return
+    }
+    analyzeAd.mutate(adId, {
       onSuccess: () => toast.success('AI re-analysis complete'),
       onError:   () => toast.error('Re-analysis failed — try again'),
     })

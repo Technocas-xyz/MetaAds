@@ -9,8 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select
+
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.ad_analysis import AdAnalysis
 from app.models.user import User
 from app.services import analysis_service
 
@@ -117,3 +121,42 @@ async def bulk_analyze(
         succeeded=succeeded,
         failed=failed,
     )
+
+
+class RequeueResponse(BaseModel):
+    queued: int
+
+
+@router.post(
+    "/competitor-ads/rerun-low-confidence",
+    response_model=RequeueResponse,
+)
+async def rerun_low_confidence(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-queue every ad whose analysis confidence is below the configured
+    threshold. Deletes those analyses so the ads become pending, then lets the
+    shared Analyze-All batch job re-analyze them. Returns how many were queued.
+    """
+    from app.services.analysis_queue import note_user_started, start_if_pending
+
+    ad_ids = (await db.execute(
+        select(AdAnalysis.ad_id).where(
+            AdAnalysis.confidence_score < settings.CONFIDENCE_THRESHOLD
+        )
+    )).scalars().all()
+    ad_ids = [a for a in ad_ids if a is not None]
+
+    if not ad_ids:
+        return RequeueResponse(queued=0)
+
+    await db.execute(
+        AdAnalysis.__table__.delete().where(AdAnalysis.ad_id.in_(ad_ids))
+    )
+    await db.commit()
+
+    note_user_started()
+    await start_if_pending("re-run requested")
+
+    return RequeueResponse(queued=len(ad_ids))
