@@ -39,6 +39,59 @@ SCRAPE_TIMEOUT = 3600  # 60 minutes — listing + keyword sweep + per-ad verific
 AD_LIBRARY_BASE = "https://www.facebook.com/ads/library/"
 
 
+# ─── Shared-creative image fallback ───────────────────────────────────────────
+
+def _ad_has_image(ad: Ad) -> bool:
+    """True when the ad already has some stored creative."""
+    return bool(
+        (ad.screenshot_url or "").strip()
+        or (ad.media_url or "").strip()
+        or (ad.video_poster_url or "").strip()
+    )
+
+
+async def _fill_missing_images_from_siblings(db: AsyncSession, competitor_id: UUID) -> int:
+    """Copy a creative onto ads that still have none from a sibling of the SAME
+    competitor with identical primary_text that does have one.
+
+    Meta groups ads sharing a creative into one card, so some ads (often video)
+    never get their media captured directly. Their copy is identical to a
+    sibling that does have an image, so the image is a safe stand-in. Returns
+    how many ads were filled. Does not commit (the caller commits).
+    """
+    ads = (await db.execute(
+        select(Ad).where(Ad.competitor_id == competitor_id)
+    )).scalars().all()
+
+    # Donors: first ad per primary_text that has an image.
+    donor_by_text: Dict[str, Ad] = {}
+    for ad in ads:
+        text = (ad.primary_text or "").strip()
+        if not text:
+            continue
+        if _ad_has_image(ad) and text not in donor_by_text:
+            donor_by_text[text] = ad
+
+    filled = 0
+    for ad in ads:
+        if _ad_has_image(ad):
+            continue
+        text = (ad.primary_text or "").strip()
+        if not text:
+            continue
+        donor = donor_by_text.get(text)
+        if donor is None:
+            continue
+        ad.screenshot_url = donor.screenshot_url
+        ad.media_url = donor.media_url
+        ad.video_poster_url = donor.video_poster_url
+        if donor.is_video:
+            ad.is_video = True
+        filled += 1
+
+    return filled
+
+
 # ─── Constants from proven scraper ────────────────────────────────────────────
 
 BRAND_ALIASES = {
@@ -341,6 +394,16 @@ async def scrape_competitor(
         # Per-ad verification works on partial runs too: Meta said directly
         # whether each unseen ad is still in the library.
         ended_count += _apply_verification(existing_map, scrape_meta, found_library_ids)
+
+        # Fallback: ads still without any image (shared-creative groups Meta
+        # never showed us directly) borrow the creative from a same-competitor
+        # ad with identical copy that has one.
+        try:
+            filled = await _fill_missing_images_from_siblings(db, competitor_id)
+            if filled:
+                logger.info(f"[scraper] Filled {filled} missing image(s) from same-text siblings for {competitor.name}")
+        except Exception as e:
+            logger.warning(f"[scraper] Sibling image fallback skipped (non-fatal): {e}")
 
         # Update run record
         duration = int((datetime.now(timezone.utc) - start_time).total_seconds())

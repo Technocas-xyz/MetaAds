@@ -501,7 +501,7 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
     stats = {
         "sweep_queries": 0, "covered_results": 0, "cards": 0, "skipped": 0, "real_ids": 0, "synth_ids": 0, "dates": 0,
         "dropped_empty": 0, "dropped_error": 0, "dup_across_slices": 0,
-        "video_unplayable": 0,
+        "video_unplayable": 0, "media_from_verification": 0,
     }
 
     def elapsed() -> float:
@@ -993,6 +993,46 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                 return "active"
             return "unknown"
 
+        def capture_media_on_current_page(library_id: str, timestamp: str) -> Optional[Dict[str, Any]]:
+            """Capture media for an ad from the page the verification already opened
+            (?id=<library_id>). No new navigation. Returns a refresh entry
+            scraper_service saves through the existing-ad branch, or None if the
+            card can't be read.
+
+            This recovers ads that only ever get visited by check_ad_status —
+            typically video ads sharing one creative card with siblings, so
+            process_cards never refreshes their media.
+            """
+            try:
+                selector_cards = [(sel, page.query_selector_all(sel)) for sel in CARD_SELECTORS]
+                _, cards = max(selector_cards, key=lambda x: len(x[1]))
+                if not cards:
+                    return None
+                card = cards[0]
+                try:
+                    card.scroll_into_view_if_needed(timeout=3000)
+                except Exception:
+                    pass
+                card_text = ""
+                try:
+                    card_text = card.inner_text()
+                except Exception:
+                    pass
+
+                fresh_media = _extract_media_only(card, card)
+                fresh_media["library_id"] = library_id
+                if is_player_error(card_text):
+                    # Video ad whose player failed (missing codec): mark it a
+                    # video and don't screenshot the grey error box.
+                    fresh_media["is_video"] = True
+                else:
+                    fresh_media["screenshot_url"] = capture_screenshot(card, library_id, timestamp)
+                fresh_media["_is_refresh"] = True
+                return fresh_media
+            except Exception as e:
+                logger.debug(f"  Media capture on verify page failed for {library_id}: {e}")
+                return None
+
         def polite_pause():
             time.sleep(random.uniform(4, 8))
 
@@ -1120,6 +1160,8 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
         if candidates and not any_blocked:
             logger.info(f"Verifying {len(candidates)} ads not seen in listing")
             unknown_streak = 0
+            verify_ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            need_image = needs_image_ids or set()
             for lid in candidates:
                 if elapsed() > time_budget - 30:
                     logger.info(f"  Time budget reached after verifying {len(verified_active) + len(verified_gone)} ads")
@@ -1127,6 +1169,20 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
                 state = check_ad_status(lid)
                 if state == "active":
                     verified_active.append(lid)
+                    # The ad's own page is open right now. If this ad has no stored
+                    # image, grab its media here — it may never appear as its own
+                    # card in the listing (shared-creative groups), so this is the
+                    # only page that shows it. No extra navigation.
+                    if lid in need_image:
+                        refresh = capture_media_on_current_page(lid, verify_ts)
+                        if refresh and (
+                            refresh.get("screenshot_url")
+                            or refresh.get("ad_creative_url")
+                            or refresh.get("video_poster_url")
+                            or refresh.get("is_video")
+                        ):
+                            results.append(refresh)
+                            stats["media_from_verification"] += 1
                 elif state == "gone":
                     verified_gone.append(lid)
                 unknown_streak = unknown_streak + 1 if state == "unknown" else 0
@@ -1148,6 +1204,7 @@ def run_scrape(comp: dict, existing_ids: Set[str], output_file: str = None, time
             f"  Dropped (empty):   {stats['dropped_empty']}\n"
             f"  Dropped (error):   {stats['dropped_error']}\n"
             f"  Video unplayable:  {stats['video_unplayable']}\n"
+            f"  Media from verify: {stats['media_from_verification']}\n"
             f"  Real IDs:          {stats['real_ids']}\n"
             f"  Synthetic IDs:     {stats['synth_ids']}\n"
             f"  Dates parsed:      {stats['dates']}\n"
