@@ -93,6 +93,8 @@ class AdResponse(BaseModel):
     offer_type: Optional[str] = None
     confidence_score: float = 0.0
     status: str
+    # Analysis state for the Ads Library badge/filter: "analyzed" | "pending" | "failed"
+    analysis_status: str = "pending"
 
     # Ad content
     headline: Optional[str] = None
@@ -147,6 +149,8 @@ class AdsSummary(BaseModel):
     analyzed_pct: float
     pending: int
     pending_pct: float
+    failed: int = 0
+    failed_pct: float = 0.0
     low_confidence: int
     low_conf_pct: float
     this_week: int

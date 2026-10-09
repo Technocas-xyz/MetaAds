@@ -13,6 +13,8 @@ export default function KPICard({
   trendUp,
   note,
   href,
+  onClick,
+  active = false,
 }) {
   const animated = useCountUp(value)
   const display = typeof value === 'number' ? animated.toLocaleString() : (value ?? '—')
@@ -50,9 +52,11 @@ export default function KPICard({
     </div>
   )
 
+  const clickable = !!href || !!onClick
   const base = cn(
-    'block rounded-card border border-border-default bg-white px-4 py-3.5 shadow-card',
-    href && 'lift cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500'
+    'block w-full rounded-card border bg-white px-4 py-3.5 text-left shadow-card',
+    clickable && 'lift cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+    active ? 'border-primary-400 ring-1 ring-primary-300' : 'border-border-default'
   )
 
   if (href) {
@@ -60,6 +64,13 @@ export default function KPICard({
       <Link to={href} className={base}>
         {inner}
       </Link>
+    )
+  }
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} aria-pressed={active} className={base}>
+        {inner}
+      </button>
     )
   }
   return <div className={base}>{inner}</div>
