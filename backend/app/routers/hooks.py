@@ -14,7 +14,7 @@ Offer Library's dimension.
 from typing import List
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, distinct
+from sqlalchemy import distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
